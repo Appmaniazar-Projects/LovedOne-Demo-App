@@ -9,9 +9,9 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ parlorName }) => {
-    const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-    const [showNotifications, setShowNotifications] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    navigate('/');
+    navigate('/login', { replace: true });
   };
 
   return (

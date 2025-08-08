@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { Routes, Route, useParams, Outlet, Navigate, useNavigate } from 'react-router-dom';
+import AuthRedirect from './components/Auth/AuthRedirect';
 import LoginPage from './components/Auth/LoginPage';
 import ParlorSelector from './components/Parlor/ParlorSelector';
 import Sidebar from './components/Layout/Sidebar';
@@ -67,7 +68,7 @@ const RoleBasedRedirect = () => {
     const getUserProfileAndRedirect = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        navigate('/');
+        navigate('/login', { replace: true });
         return;
       }
 
@@ -139,7 +140,8 @@ function App() {
 
   return (
     <Routes>
-            <Route path="/" element={<RoleBasedRedirect />} />
+      <Route path="/login" element={<AuthRedirect />} />
+      <Route path="/" element={<RoleBasedRedirect />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
       <Route path="/:parlorSlug" element={<ParlorLayout />}>
         {/* Redirect from /:parlorSlug to /:parlorSlug/dashboard */}
