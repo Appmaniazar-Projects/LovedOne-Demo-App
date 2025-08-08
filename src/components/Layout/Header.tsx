@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Search, User, LogOut, Settings } from 'lucide-react';
 import { mockNotifications } from '../../data/mockData';
 import { supabase } from '../../supabaseClient';
@@ -38,8 +38,11 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
 
   const unreadNotifications = mockNotifications.filter(n => !n.read).length;
 
+  const navigate = useNavigate();
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    navigate('/');
   };
 
   return (
