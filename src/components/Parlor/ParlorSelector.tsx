@@ -11,6 +11,7 @@ interface Parlor {
 }
 
 const ParlorSelector: React.FC = () => {
+  const [user, setUser] = useState<any>(null);
   const [parlors, setParlors] = useState<Parlor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +28,27 @@ const ParlorSelector: React.FC = () => {
       }
     }
   }, [isDarkMode]);
+
+    useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching user profile:', error);
+        } else {
+          setUser(profile);
+        }
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     const fetchParlors = async () => {
@@ -74,8 +96,13 @@ const ParlorSelector: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Select a Parlor</h1>
+                <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Select a Parlor</h1>
+            {user && user.role === 'super_admin' && (
+              <p className="text-slate-600 dark:text-slate-400">Welcome, Super Admin!</p>
+            )}
+          </div>
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="p-2 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 flex items-center justify-center"

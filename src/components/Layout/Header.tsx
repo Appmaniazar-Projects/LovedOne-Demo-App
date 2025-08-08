@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, Search, User, LogOut, Settings } from 'lucide-react';
-import { mockUser, mockNotifications } from '../../data/mockData';
+import { mockNotifications } from '../../data/mockData';
 import { supabase } from '../../supabaseClient';
 
 interface HeaderProps {
@@ -8,8 +9,32 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ parlorName }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
+    const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+    const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching user profile:', error);
+        } else {
+          setUser(profile);
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const unreadNotifications = mockNotifications.filter(n => !n.read).length;
 
@@ -86,37 +111,45 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           </div>
 
           {/* Profile */}
-          <div className="relative">
-            <button
-              onClick={() => setShowProfile(!showProfile)}
-              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-            >
-              <img
-                src={mockUser.avatar}
-                alt={mockUser.name}
-                className="w-8 h-8 rounded-full"
-              />
-              <div className="text-left">
-                <p className="text-sm font-medium text-slate-900">{mockUser.name}</p>
-                <p className="text-xs text-slate-500 capitalize">{mockUser.role}</p>
-              </div>
-            </button>
+                      <div className="relative">
+              <button
+                onClick={() => setShowProfile(!showProfile)}
+                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                {loading ? (
+                  <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
+                ) : user && (
+                  <>
+                    <img
+                      src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}&background=0D8ABC&color=fff`}
+                      alt={user.full_name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-slate-900">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                      <p className="text-xs text-slate-500 capitalize">{user.role}</p>
+                    </div>
+                  </>
+                )}
+              </button>
 
             {showProfile && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
-                <div className="p-4 border-b border-slate-200">
-                  <p className="font-medium text-slate-900">{mockUser.name}</p>
-                  <p className="text-sm text-slate-500">{mockUser.email}</p>
-                </div>
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
+                                {user && (
+                  <div className="p-4 border-b border-slate-200">
+                    <p className="font-medium text-slate-900 truncate">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                    <p className="text-sm text-slate-500 truncate" title={user.email}>{user.email}</p>
+                  </div>
+                )}
                 <div className="p-2">
-                  <button className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
+                                    <Link to="profile" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
                     <User className="w-4 h-4" />
                     <span>Profile</span>
-                  </button>
-                  <button className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
+                  </Link>
+                  <Link to="settings" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
                     <Settings className="w-4 h-4" />
                     <span>Settings</span>
-                  </button>
+                  </Link>
                   <hr className="my-2 border-slate-200" />
                   <button 
                     onClick={handleSignOut}

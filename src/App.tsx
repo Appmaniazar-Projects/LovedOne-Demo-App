@@ -11,6 +11,8 @@ import Clients from './components/Clients/Clients';
 import Cases from './components/Cases/Cases';
 import Payments from './components/Payments/Payments';
 import TaskBoard from './components/Tasks/TaskBoard';
+import ProfilePage from './components/Profile/ProfilePage';
+import SettingsPage from './components/Settings/SettingsPage';
 
 // The layout for a specific parlor, including sidebar, header, and content
 const ParlorLayout = () => {
@@ -56,7 +58,8 @@ const ParlorLayout = () => {
   );
 };
 
-// A component to handle the initial redirection based on user role
+
+
 const RoleBasedRedirect = () => {
   const navigate = useNavigate();
 
@@ -64,10 +67,10 @@ const RoleBasedRedirect = () => {
     const getUserProfileAndRedirect = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        return; // Should be handled by the main App component
+        navigate('/');
+        return;
       }
 
-      // Fetch user profile from your 'users' table
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('role, parlor_id')
@@ -76,31 +79,26 @@ const RoleBasedRedirect = () => {
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
-        // Handle error, maybe show a generic error page or sign out
         await supabase.auth.signOut();
         return;
       }
 
       if (profile.role === 'super_admin') {
-        // Super admins go to the parlor selector
         navigate('/select-parlor');
       } else if (profile.parlor_id) {
-        // Other users go to their assigned parlor's dashboard
         const { data: parlor, error: parlorError } = await supabase
           .from('parlors')
           .select('slug')
           .eq('id', profile.parlor_id)
           .single();
-        
+
         if (parlorError) {
           console.error('Error fetching parlor slug:', parlorError);
-          // Handle error
           await supabase.auth.signOut();
         } else {
           navigate(`/${parlor.slug}/dashboard`);
         }
       } else {
-        // User has no role or parlor, sign them out
         console.error('User has no role or assigned parlor.');
         await supabase.auth.signOut();
       }
@@ -109,20 +107,18 @@ const RoleBasedRedirect = () => {
     getUserProfileAndRedirect();
   }, [navigate]);
 
-  return <div>Loading...</div>; // Show a loading indicator while we redirect
+  return <div>Loading...</div>;
 };
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
     });
 
-    // Initial check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -143,7 +139,7 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<RoleBasedRedirect />} />
+            <Route path="/" element={<RoleBasedRedirect />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
       <Route path="/:parlorSlug" element={<ParlorLayout />}>
         {/* Redirect from /:parlorSlug to /:parlorSlug/dashboard */}
@@ -152,7 +148,9 @@ function App() {
         <Route path="clients" element={<Clients />} />
         <Route path="cases" element={<Cases />} />
         <Route path="payments" element={<Payments />} />
-        <Route path="tasks" element={<TaskBoard />} />
+                <Route path="tasks" element={<TaskBoard />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="settings" element={<SettingsPage />} />
         {/* Add other nested routes here */}
       </Route>
     </Routes>
