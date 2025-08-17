@@ -12,6 +12,10 @@ import Clients from './components/Clients/Clients';
 import Cases from './components/Cases/Cases';
 import Payments from './components/Payments/Payments';
 import TaskBoard from './components/Tasks/TaskBoard';
+import Documents from './components/Documents/Documents';
+import Services from './components/Services/Services';
+import Reports from './components/Reports/Reports';
+import Notifications from './components/Notifications/Notifications';
 import ProfilePage from './components/Profile/ProfilePage';
 import SettingsPage from './components/Settings/SettingsPage';
 
@@ -150,7 +154,11 @@ function App() {
         <Route path="clients" element={<Clients />} />
         <Route path="cases" element={<Cases />} />
         <Route path="payments" element={<Payments />} />
-                <Route path="tasks" element={<TaskBoard />} />
+        <Route path="tasks" element={<TaskBoard />} />
+        <Route path="documents" element={<Documents />} />
+        <Route path="services" element={<Services />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="notifications" element={<Notifications />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
         {/* Add other nested routes here */}
