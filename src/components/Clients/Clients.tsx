@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Phone, Mail, MapPin, Users } from 'lucide-react';
+import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import AddClientModal from './AddClientModal'; // FIX: Import the modal component
+import { useNavigate } from 'react-router-dom';
 
 // Define the Client type based on the new Supabase table
 export interface Client {
@@ -24,6 +25,7 @@ interface Profile {
 }
 
 const Clients: React.FC = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +160,11 @@ const Clients: React.FC = () => {
         {/* Clients Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClients.map((client) => (
-            <div key={client.id} className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
+            <div 
+              key={client.id} 
+              className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer hover:border-blue-200"
+              onClick={() => navigate(`/clients/${client.id}`)}
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -197,11 +203,20 @@ const Clients: React.FC = () => {
               )}
 
               <div className="mt-4 pt-4 border-t border-slate-200">
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>Added: {new Date(client.created_at).toLocaleDateString()}</span>
-                  <button className="text-blue-600 hover:text-blue-800 font-medium">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/clients/${client.id}`);
+                    }}
+                    className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  >
                     View Details
+                    <ArrowRight className="w-4 h-4 ml-1" />
                   </button>
+                  <span className="text-sm text-slate-500">
+                    Added: {new Date(client.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
 

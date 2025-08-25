@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
-import { Routes, Route, useParams, Outlet, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, useParams, Outlet, Navigate, useNavigate, Link } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import AuthRedirect from './components/Auth/AuthRedirect';
 import LoginPage from './components/Auth/LoginPage';
 import ParlorSelector from './components/Parlor/ParlorSelector';
@@ -18,6 +19,8 @@ import Reports from './components/Reports/Reports';
 import Notifications from './components/Notifications/Notifications';
 import ProfilePage from './components/Profile/ProfilePage';
 import SettingsPage from './components/Settings/SettingsPage';
+import ParlorDetails from './components/Parlor/ParlorDetails';
+import ClientDetails from './components/Clients/ClientDetails';
 
 // The layout for a specific parlor, including sidebar, header, and content
 const ParlorLayout = () => {
@@ -59,6 +62,7 @@ const ParlorLayout = () => {
           <Outlet />
         </main>
       </div>
+      <Toaster position="top-right" />
     </div>
   );
 };
@@ -144,9 +148,20 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/test-route" element={
+        <div className="p-8">
+          <h1 className="text-2xl font-bold mb-4">Test Route</h1>
+          <p>This is a test route to check if routing is working.</p>
+          <Link to="/parlors/123" className="text-blue-600 hover:underline">
+            Test Parlor Details
+          </Link>
+        </div>
+      } />
       <Route path="/login" element={<AuthRedirect />} />
       <Route path="/" element={<RoleBasedRedirect />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
+      <Route path="/clients/:id" element={<ClientDetails />} />
+      <Route path="/parlors/:id" element={<ParlorDetails />} />
       <Route path="/:parlorSlug" element={<ParlorLayout />}>
         {/* Redirect from /:parlorSlug to /:parlorSlug/dashboard */}
         <Route index element={<Navigate to="dashboard" replace />} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { Building, Sun, Moon } from 'lucide-react';
 
@@ -16,6 +16,7 @@ const ParlorSelector: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const navigate = useNavigate();
 
   // Add a useEffect to apply dark mode class to the root element
   useEffect(() => {
@@ -118,11 +119,15 @@ const ParlorSelector: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {parlors.map((parlor) => (
-            <Link
-              to={`/${parlor.slug}/dashboard`}
+            <div
               key={parlor.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-700 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-700 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col relative group"
             >
+              <Link 
+                to={`/${parlor.slug}/dashboard`}
+                className="absolute inset-0 z-10" 
+                aria-label={`Manage ${parlor.name}`}
+              />
               <div className="flex-grow">
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="bg-primary-100 dark:bg-primary-900 text-primary-600 p-3 rounded-lg">
@@ -132,10 +137,26 @@ const ParlorSelector: React.FC = () => {
                 </div>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">{parlor.address}</p>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-primary-600 dark:text-primary-400 font-semibold text-sm">Manage Parlor &rarr;</p>
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <Link 
+                  to={`/${parlor.slug}/dashboard`}
+                  className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-semibold text-sm z-20 relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Manage Parlor &rarr;
+                </Link>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Navigating to parlor details for ID:', parlor.id);
+                    navigate(`/parlors/${parlor.id}`);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm z-20 relative bg-transparent border-none cursor-pointer p-0"
+                >
+                  View Details
+                </button>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </div>
