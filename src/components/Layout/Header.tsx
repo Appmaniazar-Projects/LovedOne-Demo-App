@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Search, User, LogOut, Settings } from 'lucide-react';
+import { Bell, Search, User, LogOut, Settings, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 import { mockNotifications } from '../../data/mockData';
 import { supabase } from '../../supabaseClient';
 
@@ -13,6 +14,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -46,7 +48,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4">
+    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4`}>
       <div className="flex items-center justify-between">
         {/* Parlor Name */}
         <div>
@@ -82,7 +84,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
+              <div className={`absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700`}>
                 <div className="p-4 border-b border-slate-200">
                   <h3 className="font-semibold text-slate-900">Notifications</h3>
                 </div>
@@ -113,39 +115,52 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
             )}
           </div>
 
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
+          </button>
+
           {/* Profile */}
-                      <div className="relative">
-              <button
-                onClick={() => setShowProfile(!showProfile)}
-                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                {loading ? (
-                  <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
-                ) : user && (
-                  <>
-                    <img
-                      src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}&background=0D8ABC&color=fff`}
-                      alt={user.full_name}
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-slate-900">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
-                      <p className="text-xs text-slate-500 capitalize">{user.role}</p>
-                    </div>
-                  </>
-                )}
-              </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowProfile(!showProfile)}
+              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              {loading ? (
+                <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
+              ) : user && (
+                <>
+                  <img
+                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}&background=0D8ABC&color=fff`}
+                    alt={user.full_name}
+                    className="w-8 h-8 rounded-full"
+                  />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-slate-900">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                    <p className="text-xs text-slate-500 capitalize">{user.role}</p>
+                  </div>
+                </>
+              )}
+            </button>
 
             {showProfile && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
-                                {user && (
-                  <div className="p-4 border-b border-slate-200">
+              <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700`}>
+                {user && (
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-gray-700">
                     <p className="font-medium text-slate-900 truncate">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
                     <p className="text-sm text-slate-500 truncate" title={user.email}>{user.email}</p>
                   </div>
                 )}
                 <div className="p-2">
-                                    <Link to="profile" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
+                  <Link to="profile" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </Link>
@@ -154,13 +169,29 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
                     <span>Settings</span>
                   </Link>
                   <hr className="my-2 border-slate-200" />
-                  <button 
+                  <button
                     onClick={handleSignOut}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Sign out</span>
                   </button>
+                </div>
+                <div className="px-4 py-2 border-t border-slate-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Theme</span>
+                    <button
+                      onClick={toggleTheme}
+                      className="p-1 rounded-full text-gray-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700"
+                      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    >
+                      {theme === 'dark' ? (
+                        <Sun className="w-4 h-4" />
+                      ) : (
+                        <Moon className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

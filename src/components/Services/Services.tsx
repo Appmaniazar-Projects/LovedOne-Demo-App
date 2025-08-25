@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Plus, Search, Calendar, MapPin, Users, Clock, Filter } from 'lucide-react';
 import { mockServices } from '../../data/mockData';
 import { Service } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const Services: React.FC = () => {
+  const { theme } = useTheme();
   const [services, setServices] = useState<Service[]>(mockServices);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -47,18 +49,31 @@ const Services: React.FC = () => {
   };
 
   const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'funeral':
-        return 'bg-purple-100 text-purple-800';
-      case 'memorial':
-        return 'bg-blue-100 text-blue-800';
-      case 'cremation':
-        return 'bg-orange-100 text-orange-800';
-      case 'burial':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const colors = {
+      funeral: {
+        light: 'bg-purple-100 text-purple-800',
+        dark: 'bg-purple-900/30 text-purple-300'
+      },
+      memorial: {
+        light: 'bg-blue-100 text-blue-800',
+        dark: 'bg-blue-900/30 text-blue-300'
+      },
+      cremation: {
+        light: 'bg-orange-100 text-orange-800',
+        dark: 'bg-orange-900/30 text-orange-300'
+      },
+      burial: {
+        light: 'bg-green-100 text-green-800',
+        dark: 'bg-green-900/30 text-green-300'
+      },
+      default: {
+        light: 'bg-gray-100 text-gray-800',
+        dark: 'bg-gray-700/50 text-gray-200'
+      }
+    };
+
+    const color = colors[type as keyof typeof colors] || colors.default;
+    return color[theme as keyof typeof color];
   };
 
   const getDateStatus = (date: Date) => {
@@ -67,20 +82,43 @@ const Services: React.FC = () => {
     const diffTime = serviceDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { text: 'Past', color: 'text-gray-500' };
-    if (diffDays === 0) return { text: 'Today', color: 'text-red-600 font-semibold' };
-    if (diffDays === 1) return { text: 'Tomorrow', color: 'text-orange-600 font-semibold' };
-    if (diffDays <= 7) return { text: `In ${diffDays} days`, color: 'text-yellow-600' };
-    return { text: `In ${diffDays} days`, color: 'text-green-600' };
+    if (diffDays < 0) {
+      return { 
+        text: 'Past', 
+        color: theme === 'dark' ? 'text-gray-400' : 'text-gray-500' 
+      };
+    }
+    if (diffDays === 0) {
+      return { 
+        text: 'Today', 
+        color: theme === 'dark' ? 'text-red-400 font-semibold' : 'text-red-600 font-semibold' 
+      };
+    }
+    if (diffDays === 1) {
+      return { 
+        text: 'Tomorrow', 
+        color: theme === 'dark' ? 'text-orange-400 font-semibold' : 'text-orange-600 font-semibold' 
+      };
+    }
+    if (diffDays <= 7) {
+      return { 
+        text: `In ${diffDays} days`, 
+        color: theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600' 
+      };
+    }
+    return { 
+      text: `In ${diffDays} days`, 
+      color: theme === 'dark' ? 'text-green-400' : 'text-green-600' 
+    };
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={`p-6 space-y-6 min-h-screen transition-colors duration-200 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Services</h1>
-          <p className="text-slate-600">Schedule and manage funeral services</p>
+          <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Services</h1>
+          <p className={theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}>Schedule and manage funeral services</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
@@ -92,25 +130,41 @@ const Services: React.FC = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className={`rounded-lg shadow-sm border p-6 transition-colors duration-200 ${
+        theme === 'dark' 
+          ? 'bg-gray-800 border-gray-700' 
+          : 'bg-white border-slate-200'
+      }`}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-slate-400'
+            }`} />
             <input
               type="text"
               placeholder="Search services..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
+                theme === 'dark' 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                  : 'border border-slate-300 bg-white text-gray-900'
+              }`}
             />
           </div>
           
           <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-slate-400" />
+            <Filter className={`w-5 h-5 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-slate-400'
+            }`} />
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`flex-1 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
+                theme === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white'
+                  : 'border border-slate-300 bg-white text-gray-900'
+              }`}
             >
               <option value="all">All Types</option>
               <option value="funeral">Funeral</option>
@@ -123,7 +177,11 @@ const Services: React.FC = () => {
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
+              theme === 'dark'
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'border border-slate-300 bg-white text-gray-900'
+            }`}
           >
             <option value="all">All Dates</option>
             <option value="today">Today</option>
@@ -134,14 +192,22 @@ const Services: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Total Services</p>
-          <p className="text-2xl font-bold text-slate-900">{services.length}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+        }`}>
+          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>Total Services</p>
+          <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+            {services.length}
+          </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">This Week</p>
-          <p className="text-2xl font-bold text-blue-600">
+        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+        }`}>
+          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>This Week</p>
+          <p className={`text-2xl font-bold ${
+            theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+          }`}>
             {services.filter(s => {
               const weekFromNow = new Date();
               weekFromNow.setDate(weekFromNow.getDate() + 7);
@@ -149,15 +215,23 @@ const Services: React.FC = () => {
             }).length}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Today</p>
-          <p className="text-2xl font-bold text-red-600">
+        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+        }`}>
+          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>Today</p>
+          <p className={`text-2xl font-bold ${
+            theme === 'dark' ? 'text-red-400' : 'text-red-600'
+          }`}>
             {services.filter(s => new Date(s.date).toDateString() === new Date().toDateString()).length}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Upcoming</p>
-          <p className="text-2xl font-bold text-green-600">
+        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+        }`}>
+          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>Upcoming</p>
+          <p className={`text-2xl font-bold ${
+            theme === 'dark' ? 'text-green-400' : 'text-green-600'
+          }`}>
             {services.filter(s => new Date(s.date) > new Date()).length}
           </p>
         </div>
@@ -168,12 +242,23 @@ const Services: React.FC = () => {
         {filteredServices.map((service) => {
           const dateStatus = getDateStatus(service.date);
           return (
-            <div key={service.id} className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
+            <div 
+              key={service.id} 
+              className={`rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-200 ${
+                theme === 'dark' 
+                  ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' 
+                  : 'bg-white border-slate-200 hover:bg-slate-50'
+              }`}
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="text-2xl">{getServiceIcon(service.type)}</div>
                   <div>
-                    <h3 className="font-semibold text-slate-900">{service.name}</h3>
+                    <h3 className={`font-semibold ${
+                      theme === 'dark' ? 'text-white' : 'text-slate-900'
+                    }`}>
+                      {service.name}
+                    </h3>
                     <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(service.type)} mt-1`}>
                       {service.type.charAt(0).toUpperCase() + service.type.slice(1)}
                     </span>
@@ -185,15 +270,21 @@ const Services: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <div className={`flex items-center space-x-2 text-sm ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-slate-600'
+                }`}>
                   <Calendar className="w-4 h-4" />
                   <span>{new Date(service.date).toLocaleDateString()}</span>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <div className={`flex items-center space-x-2 text-sm ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-slate-600'
+                }`}>
                   <Clock className="w-4 h-4" />
                   <span>{service.time}</span>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <div className={`flex items-center space-x-2 text-sm ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-slate-600'
+                }`}>
                   <MapPin className="w-4 h-4" />
                   <span>{service.venue}</span>
                 </div>

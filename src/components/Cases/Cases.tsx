@@ -22,35 +22,35 @@ const Cases: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cases</h1>
-          <p className="text-slate-600">Manage deceased profiles and service cases</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Cases</h1>
+          <p className="text-slate-600 dark:text-gray-300">Manage deceased profiles and service cases</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2">
           <Plus className="w-5 h-5" />
           <span>New Case</span>
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
               placeholder="Search cases..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
             />
           </div>
           
           <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-slate-400" />
+            <Filter className="w-5 h-5 text-slate-400 dark:text-gray-500" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="quote">Quote</option>
@@ -62,7 +62,7 @@ const Cases: React.FC = () => {
           <select
             value={serviceFilter}
             onChange={(e) => setServiceFilter(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Services</option>
             <option value="burial">Burial</option>
@@ -74,25 +74,25 @@ const Cases: React.FC = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Total Cases</p>
-          <p className="text-2xl font-bold text-slate-900">{mockDeceasedProfiles.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-gray-300">Total Cases</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white">{mockDeceasedProfiles.length}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Active Cases</p>
-          <p className="text-2xl font-bold text-blue-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-gray-300">Active Cases</p>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {mockDeceasedProfiles.filter(c => c.status === 'ongoing').length}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Quotes</p>
-          <p className="text-2xl font-bold text-yellow-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-gray-300">Quotes</p>
+          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {mockDeceasedProfiles.filter(c => c.status === 'quote').length}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Completed</p>
-          <p className="text-2xl font-bold text-green-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-gray-300">Completed</p>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             {mockDeceasedProfiles.filter(c => c.status === 'closed').length}
           </p>
         </div>
@@ -100,13 +100,19 @@ const Cases: React.FC = () => {
 
       {/* Cases Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCases.map((caseData) => (
-          <CaseCard
-            key={caseData.id}
-            case={caseData}
-            onClick={() => console.log('Case clicked:', caseData.id)}
-          />
-        ))}
+        {filteredCases.length > 0 ? (
+          filteredCases.map((caseData) => (
+            <CaseCard
+              key={caseData.id}
+              case={caseData}
+              onClick={() => console.log('View case', caseData.id)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full py-12 text-center">
+            <p className="text-slate-500 dark:text-gray-400">No cases found matching your criteria</p>
+          </div>
+        )}
       </div>
 
       {filteredCases.length === 0 && (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -13,12 +13,17 @@ import {
   Settings,
   Heart
 } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface SidebarProps {
   parlorSlug: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { theme } = useTheme();
   const location = useLocation();
 
   const menuItems = [
@@ -34,8 +39,19 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
     { id: 'settings', label: 'Settings', icon: Settings, path: `/${parlorSlug}/settings` },
   ];
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (data) {
+        setUser(data.user);
+      }
+      setLoading(false);
+    };
+    fetchUser();
+  }, []);
+
   return (
-    <div className="w-64 bg-slate-900 text-white min-h-screen flex flex-col">
+    <div className={`w-64 bg-${theme === 'dark' ? 'slate-900' : 'white'} text-${theme === 'dark' ? 'white' : 'slate-900'} min-h-screen flex flex-col`}>
       {/* Logo */}
       <div className="p-6 border-b border-slate-700">
         <div className="flex items-center space-x-3">
@@ -62,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      : `text-${theme === 'dark' ? 'slate-300' : 'slate-900'} hover:bg-${theme === 'dark' ? 'slate-800' : 'slate-100'} hover:text-${theme === 'dark' ? 'white' : 'slate-900'}`
                   }`}
                 >
                   <Icon className="w-5 h-5" />

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../supabaseClient';
-import AddClientModal from './AddClientModal'; // FIX: Import the modal component
+import AddClientModal from './AddClientModal';
 import { useNavigate } from 'react-router-dom';
 
-// Define the Client type based on the new Supabase table
-export interface Client {
+interface Client {
   id: string;
   name: string;
   relationship: string;
@@ -17,7 +17,6 @@ export interface Client {
   user_id: string | null;
 }
 
-// Add a new Profile type
 interface Profile {
   id: string;
   role: 'staff' | 'admin' | 'super_admin';
@@ -26,50 +25,56 @@ interface Profile {
 
 const Clients: React.FC = () => {
   const navigate = useNavigate();
+  const { theme: _ } = useTheme();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null); // For user role
-  const [staffList, setStaffList] = useState<Profile[]>([]); // For assignment dropdown
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [staffList, setStaffList] = useState<Profile[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-
-        // 1. Get the current user's profile to determine their role
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("No user logged in");
 
-        const { data: profile, error: profileError } = await supabase
+        // Fetch user profile
+        const { data: profile } = await supabase
           .from('profiles')
           .select('id, role, full_name')
           .eq('id', user.id)
           .single();
 
-        if (profileError) throw profileError;
-        setUserProfile(profile as Profile);
+        if (profile) {
+          setUserProfile(profile);
 
-        // 2. Fetch all clients (RLS will filter them based on role)
-        const { data, error } = await supabase.from('clients').select('*');
-        if (error) throw error;
-        if (data) setClients(data);
+          // Fetch clients based on user role
+          let query = supabase.from('clients').select('*');
 
-        // 3. If user is an admin, fetch all staff members for the assignment dropdown
-        if (profile.role === 'admin' || profile.role === 'super_admin') {
-          const { data: staff, error: staffError } = await supabase
-            .from('profiles')
-            .select('id, full_name, role')
-            .in('role', ['staff', 'admin']); // Or just ['staff'] depending on who can be assigned
-          
-          if (staffError) throw staffError;
-          setStaffList(staff as Profile[]);
+          if (profile.role === 'staff') {
+            query = query.eq('user_id', user.id);
+          }
+
+          const { data: clientsData, error: clientsError } = await query;
+          if (clientsError) throw clientsError;
+
+          // If admin/super_admin, fetch staff for assignment
+          if (profile.role === 'admin' || profile.role === 'super_admin') {
+            const { data: staffData } = await supabase
+              .from('profiles')
+              .select('id, full_name, role')
+              .eq('role', 'staff');
+            setStaffList(staffData || []);
+          }
+
+          setClients(clientsData || []);
         }
-
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error) {
+        console.error('Error:', error);
+        setError(error instanceof Error ? error.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -79,189 +84,179 @@ const Clients: React.FC = () => {
   }, []);
 
   const handleAssignClient = async (clientId: string, newStaffId: string) => {
-    // Optimistically update the UI
-    setClients(clients.map(c => c.id === clientId ? { ...c, user_id: newStaffId } : c));
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ user_id: newStaffId || null })
+        .eq('id', clientId);
 
-    const { error } = await supabase
-      .from('clients')
-      .update({ user_id: newStaffId })
-      .eq('id', clientId);
+      if (error) throw error;
 
-    if (error) {
-      // If the update fails, revert the change and show an error
-      setError(`Failed to assign client: ${error.message}`);
-      // Consider reverting the optimistic update here if needed
+      setClients(prevClients =>
+        prevClients.map(client =>
+          client.id === clientId ? { ...client, user_id: newStaffId || null } : client
+        )
+      );
+    } catch (error) {
+      console.error('Error assigning client:', error);
     }
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (client.phone && client.phone.includes(searchTerm))
+  const filteredClients = clients.filter(
+    client =>
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (client.phone && client.phone.includes(searchTerm))
   );
 
   if (loading) {
-    return <div className="p-6 text-center">Loading clients...</div>;
+    return <div className="p-6 text-center dark:text-white">Loading clients...</div>;
   }
 
   if (error) {
-    return <div className="p-6 text-center text-red-500">Error: {error}</div>;
+    return <div className="p-6 text-center text-red-500 dark:text-red-400">Error: {error}</div>;
   }
 
   return (
-    // FIX: Wrap everything in a React Fragment
-    <>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
-            <p className="text-slate-600">Manage family contacts and relationships</p>
-          </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Client</span>
-          </button>
+    <div className="p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Clients</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Manage your clients and their information</p>
         </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors w-full md:w-auto justify-center"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Add Client
+        </button>
+      </div>
 
-        {/* Search */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search clients by name, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search clients..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Total Clients</p>
-                <p className="text-2xl font-bold text-slate-900">{clients.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          {/* Other stats can be re-added here if needed */}
+      {filteredClients.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+          <Users className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+          <div className="text-gray-500 dark:text-gray-400 text-lg">No clients found</div>
+          <p className="text-gray-400 dark:text-gray-500 mt-2">
+            {searchTerm ? 'Try adjusting your search terms' : 'Add a new client to get started'}
+          </p>
         </div>
-
-        {/* Clients Grid */}
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClients.map((client) => (
-            <div 
-              key={client.id} 
-              className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer hover:border-blue-200"
+            <div
+              key={client.id}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow cursor-pointer border border-gray-200 dark:border-gray-700"
               onClick={() => navigate(`/clients/${client.id}`)}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold text-lg">
-                      {client.name.charAt(0)}
-                    </span>
-                  </div>
+              <div className="p-6">
+                <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-semibold text-slate-900">{client.name}</h3>
-                    <p className="text-sm text-slate-500">{client.relationship || 'N/A'}</p>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {client.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {client.relationship}
+                    </p>
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
-                  <Mail className="w-4 h-4" />
-                  <span>{client.email || 'No email'}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
-                  <Phone className="w-4 h-4" />
-                  <span>{client.phone || 'No phone'}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
-                  <MapPin className="w-4 h-4" />
-                  <span>{client.address || 'No address'}</span>
-                </div>
-              </div>
-
-              {client.cultural_preferences && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <span className="font-medium">Cultural Preferences:</span> {client.cultural_preferences}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <div className="flex justify-between items-center">
                   <button
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/clients/${client.id}`);
                     }}
-                    className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                   >
-                    View Details
-                    <ArrowRight className="w-4 h-4 ml-1" />
+                    <ArrowRight className="w-5 h-5" />
                   </button>
-                  <span className="text-sm text-slate-500">
-                    Added: {new Date(client.created_at).toLocaleDateString()}
-                  </span>
                 </div>
-              </div>
 
-              {/* --- Client Assignment UI for Admins --- */}
-              {(userProfile?.role === 'admin' || userProfile?.role === 'super_admin') && (
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <label htmlFor={`assign-${client.id}`} className="text-sm font-medium text-slate-700 block mb-1">
-                    Assign to:
-                  </label>
-                  <select
-                    id={`assign-${client.id}`}
-                    value={client.user_id || ''}
-                    onChange={(e) => handleAssignClient(client.id, e.target.value)}
-                    className="w-full px-2 py-1 border border-slate-300 rounded-md text-sm"
-                  >
-                    <option value="" disabled>Select Staff...</option>
-                    {staffList.map(staff => (
-                      <option key={staff.id} value={staff.id}>
-                        {staff.full_name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                    <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                    <span className="truncate">{client.email || 'No email'}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                    <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                    <span>{client.phone || 'No phone'}</span>
+                  </div>
+                  <div className="flex items-start text-sm text-gray-600 dark:text-gray-300">
+                    <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                    <span className="line-clamp-2">{client.address || 'No address'}</span>
+                  </div>
                 </div>
-              )}
+
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/clients/${client.id}`);
+                      }}
+                      className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                    >
+                      View Details
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </button>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Added: {new Date(client.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                {(userProfile?.role === 'admin' || userProfile?.role === 'super_admin') && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <label
+                      htmlFor={`assign-${client.id}`}
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Assign to:
+                    </label>
+                    <select
+                      id={`assign-${client.id}`}
+                      value={client.user_id || ''}
+                      onChange={(e) => handleAssignClient(client.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="" disabled>
+                        Select Staff...
+                      </option>
+                      {staffList.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
+      )}
 
-        {filteredClients.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <div className="text-slate-400 text-lg">No clients found</div>
-            <p className="text-slate-500 mt-2">Try adjusting your search terms</p>
-          </div>
-        )}
-      </div>
       <AddClientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onClientAdded={(newClient: Client) => { // FIX: Add type to newClient
+        onClientAdded={(newClient: Client) => {
           setClients((prevClients) => [...prevClients, newClient]);
           setIsModalOpen(false);
         }}
       />
-    </>
+    </div>
   );
 };
 

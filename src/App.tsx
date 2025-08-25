@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { Routes, Route, useParams, Outlet, Navigate, useNavigate, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from './contexts/ThemeContext';
 import AuthRedirect from './components/Auth/AuthRedirect';
 import LoginPage from './components/Auth/LoginPage';
 import ParlorSelector from './components/Parlor/ParlorSelector';
@@ -54,15 +55,17 @@ const ParlorLayout = () => {
   }
 
   return (
-    <div className="flex h-screen bg-slate-100">
-      <Sidebar parlorSlug={parlorSlug!} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header parlorName={parlorName} />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 p-6">
-          <Outlet />
-        </main>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="flex h-screen bg-white dark:bg-gray-900">
+        <Sidebar parlorSlug={parlorSlug!} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header parlorName={parlorName} />
+          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white dark:bg-gray-900 p-6">
+            <Outlet />
+          </main>
+        </div>
+        <Toaster position="top-right" />
       </div>
-      <Toaster position="top-right" />
     </div>
   );
 };
@@ -133,6 +136,15 @@ function App() {
       setLoading(false);
     });
 
+    // Set initial theme class on body
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    return () => subscription.unsubscribe();
     return () => {
       subscription.unsubscribe();
     };
