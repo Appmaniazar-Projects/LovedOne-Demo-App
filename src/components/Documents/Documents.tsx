@@ -1,16 +1,64 @@
-import React, { useState } from 'react';
-import { Plus, Search, FileText, Download, Eye, Trash2, Upload, Calendar, User } from 'lucide-react';
-import { mockDocuments } from '../../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Search, FileText, Download, Eye, Trash2, Upload, Calendar, User } from 'lucide-react';
 import { Document } from '../../types';
+import { supabase } from '../../supabaseClient';
 
 const Documents: React.FC = () => {
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch documents from Supabase
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('documents')
+        .select(`
+          id,
+          title,
+          description,
+          file_url,
+          uploaded_by,
+          deceased_id,
+          client_id,
+          parlor_id,
+          created_at,
+          updated_at,
+          type,
+          size,
+          expiry_date
+        `)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Error fetching documents:', error.message);
+        setDocuments([]);
+      } else {
+        setDocuments(
+          (data as any[]).map((doc) => ({
+            id: doc.id,
+            name: doc.title,
+            description: doc.description,
+            type: doc.type ?? 'other',
+            url: doc.file_url,
+            size: doc.size ?? 0,
+            caseId: doc.deceased_id ?? doc.client_id ?? doc.parlor_id ?? '',
+            uploadedBy: doc.uploaded_by ?? 'Unknown',
+            expiryDate: doc.expiry_date ? new Date(doc.expiry_date) : undefined,
+            createdAt: doc.created_at ? new Date(doc.created_at) : new Date(),
+            updatedAt: doc.updated_at ? new Date(doc.updated_at) : (doc.created_at ? new Date(doc.created_at) : new Date()),
+          }))
+        );
+      }
+      setLoading(false);
+    };
+    fetchDocuments();
+  }, []);
 
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = doc.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || doc.type === typeFilter;
     return matchesSearch && matchesType;
   });
