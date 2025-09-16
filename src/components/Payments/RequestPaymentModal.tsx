@@ -72,50 +72,77 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
-        <button onClick={onClose} className="absolute top-3 right-3 text-slate-500 hover:text-slate-800">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md relative transition-colors duration-200">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+        >
           <X className="w-6 h-6" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Request a Payment</h2>
-        
-        <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
-          <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-slate-700">Amount (ZAR)</label>
-            <input
-              type="number"
-              id="amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="e.g., 500.00"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-slate-700">Description</label>
-            <input
-              type="text"
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="e.g., Payment for services"
-              required
-            />
-          </div>
-          <button 
-            type="submit" 
-            className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 disabled:bg-blue-400"
-            disabled={isProcessing}
-          >
-            {isProcessing ? 'Processing...' : 'Proceed to Easypay'}
-          </button>
-        </form>
 
-        {/* This is where the Easypay Checkout form will be rendered */}
-        <div id="easypay-checkout-form"></div>
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Request Payment</h2>
+          <p className="text-slate-600 dark:text-gray-300 mb-6">Enter payment details to generate a payment request</p>
+          
+          <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">
+                Amount (ZAR)
+              </label>
+              <input
+                type="number"
+                id="amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+                required
+              />
+            </div>
 
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter a description for this payment"
+                rows={3}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+                required
+              />
+            </div>
+
+            <div id="checkout-container" className="hidden">
+              <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">Complete your payment using the form below:</p>
+              <div id="easypay-checkout" className="w-full"></div>
+            </div>
+
+            <div id="form-actions" className="flex justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isProcessing}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isProcessing ? 'Processing...' : 'Request Payment'}
+              </button>
+            </div>
+          </form>
+
+          <div id="easypay-checkout-form" className="mt-4"></div>
+        </div>
       </div>
     </div>
   );

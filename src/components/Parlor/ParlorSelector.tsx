@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { Building, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Parlor {
   id: string;
@@ -11,23 +12,12 @@ interface Parlor {
 }
 
 const ParlorSelector: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
   const [parlors, setParlors] = useState<Parlor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // Add a useEffect to apply dark mode class to the root element
-  useEffect(() => {
-    const html = document.querySelector('html');
-    if (html) {
-      if (isDarkMode) {
-        html.classList.add('dark');
-      } else {
-        html.classList.remove('dark');
-      }
-    }
-  }, [isDarkMode]);
+  const { theme, toggleTheme } = useTheme();
+  const isDarkMode = theme === 'dark';
+  const navigate = useNavigate();
 
     useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -94,49 +84,52 @@ const ParlorSelector: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-4xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Select a Parlor</h1>
-            {user && user.role === 'super_admin' && (
-              <p className="text-slate-600 dark:text-slate-400">Welcome, Super Admin!</p>
-            )}
-          </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+      <div className="w-full max-w-2xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Select a Parlor</h1>
+          <p className="text-gray-600 dark:text-gray-300">Choose a parlor to manage or create a new one</p>
+        </div>
+        <div className="flex justify-end mb-6">
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 flex items-center justify-center"
+            onClick={toggleTheme}
+            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-yellow-500" />
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5" />
             ) : (
-              <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <Moon className="w-5 h-5" />
             )}
           </button>
         </div>
-        <p className="text-slate-600 dark:text-slate-400 mb-8">Choose which funeral parlor you would like to manage.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {parlors.map((parlor) => (
-            <Link
-              to={`/${parlor.slug}/dashboard`}
-              key={parlor.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-700 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col"
-            >
-              <div className="flex-grow">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="bg-primary-100 dark:bg-primary-900 text-primary-600 p-3 rounded-lg">
-                    <Building className="w-6 h-6" />
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+          <div className="p-6">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Your Parlors</h2>
+            <div className="space-y-3">
+              {parlors.map((parlor) => (
+                <div 
+                  key={parlor.id} 
+                  className="flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => navigate(`/${parlor.slug}/dashboard`)}
+                >
+                  <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                    <Building className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{parlor.name}</h2>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{parlor.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{parlor.address}</p>
+                  </div>
                 </div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">{parlor.address}</p>
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-primary-600 dark:text-primary-400 font-semibold text-sm">Manage Parlor &rarr;</p>
-              </div>
-            </Link>
-          ))}
+              ))}
+            </div>
+            <button
+              className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              onClick={() => console.log('Create new parlor')}
+            >
+              + Create New Parlor
+            </button>
+          </div>
         </div>
       </div>
     </div>
