@@ -21,8 +21,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setUser] = useState<any>(null);
+  const [, setLoading] = useState(true);
   const { theme } = useTheme();
   const location = useLocation();
 
@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
       if (data) {
         setUser(data.user);
       }
@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
   }, []);
 
   return (
-    <div className={`w-64 bg-${theme === 'dark' ? 'slate-900' : 'white'} text-${theme === 'dark' ? 'white' : 'slate-900'} min-h-screen flex flex-col`}>
+    <div className={`w-64 bg-${theme === 'dark' ? 'slate-900' : 'white'} text-${theme === 'dark' ? 'white' : 'slate-900'} h-full flex flex-col border-r border-slate-200 dark:border-slate-700`}>
       {/* Logo */}
       <div className="p-6 border-b border-slate-700">
         <div className="flex items-center space-x-3">
@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;

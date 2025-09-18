@@ -48,8 +48,8 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
   };
 
   return (
-    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4`}>
-      <div className="flex items-center justify-between">
+    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4 w-full`}>
+      <div className="flex items-center justify-between w-full">
         {/* Parlor Name */}
         <div>
           <h1 className="text-xl font-bold text-slate-800">{parlorName}</h1>
