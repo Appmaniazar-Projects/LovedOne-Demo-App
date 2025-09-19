@@ -49,14 +49,14 @@ const Notifications: React.FC = () => {
   const getNotificationColor = (type: string) => {
     switch (type) {
       case 'success':
-        return 'border-l-green-500 bg-green-50';
+        return 'border-l-green-500 bg-green-50 dark:bg-green-900/20';
       case 'warning':
-        return 'border-l-yellow-500 bg-yellow-50';
+        return 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/20';
       case 'error':
-        return 'border-l-red-500 bg-red-50';
+        return 'border-l-red-500 bg-red-50 dark:bg-red-900/20';
       case 'info':
       default:
-        return 'border-l-blue-500 bg-blue-50';
+        return 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/20';
     }
   };
 
@@ -79,12 +79,12 @@ const Notifications: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <Bell className="w-8 h-8 text-slate-700" />
+            <Bell className="w-8 h-8 text-slate-700 dark:text-gray-300" />
             {unreadCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                 {unreadCount}
@@ -92,8 +92,8 @@ const Notifications: React.FC = () => {
             )}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
-            <p className="text-slate-600">Stay updated with important alerts and messages</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Notifications</h1>
+            <p className="text-slate-600 dark:text-gray-300">Stay updated with important alerts and messages</p>
           </div>
         </div>
         {unreadCount > 0 && (
@@ -108,25 +108,25 @@ const Notifications: React.FC = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-400 w-5 h-5" />
             <input
               type="text"
               placeholder="Search notifications..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           
           <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-slate-400" />
+            <Filter className="w-5 h-5 text-slate-400 dark:text-gray-400" />
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 border border-slate-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Notifications</option>
               <option value="unread">Unread</option>
@@ -142,23 +142,23 @@ const Notifications: React.FC = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Total</p>
-          <p className="text-2xl font-bold text-slate-900">{notifications.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-white">Total</p>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{notifications.length}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Unread</p>
-          <p className="text-2xl font-bold text-red-600">{unreadCount}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-white">Unread</p>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{unreadCount}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Warnings</p>
-          <p className="text-2xl font-bold text-yellow-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-white">Warnings</p>
+          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {notifications.filter(n => n.type === 'warning').length}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Success</p>
-          <p className="text-2xl font-bold text-green-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+          <p className="text-sm text-slate-600 dark:text-white">Success</p>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             {notifications.filter(n => n.type === 'success').length}
           </p>
         </div>
@@ -169,7 +169,7 @@ const Notifications: React.FC = () => {
         {filteredNotifications.map((notification) => (
           <div
             key={notification.id}
-            className={`bg-white rounded-lg shadow-sm border-l-4 ${getNotificationColor(notification.type)} ${
+            className={`rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 ${getNotificationColor(notification.type)} bg-white dark:bg-gray-800 ${
               !notification.read ? 'border-r-4 border-r-blue-500' : ''
             }`}
           >
@@ -181,20 +181,20 @@ const Notifications: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-1">
-                      <h3 className={`font-semibold ${!notification.read ? 'text-slate-900' : 'text-slate-700'}`}>
+                      <h3 className={`font-semibold ${!notification.read ? 'text-slate-900 dark:text-gray-100' : 'text-slate-700 dark:text-gray-300'}`}>
                         {notification.title}
                       </h3>
                       {!notification.read && (
                         <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                       )}
                     </div>
-                    <p className={`${!notification.read ? 'text-slate-700' : 'text-slate-600'} mb-2`}>
+                    <p className={`${!notification.read ? 'text-slate-700 dark:text-gray-300' : 'text-slate-600 dark:text-gray-400'} mb-2`}>
                       {notification.message}
                     </p>
-                    <div className="flex items-center space-x-4 text-sm text-slate-500">
+                    <div className="flex items-center space-x-4 text-sm text-slate-500 dark:text-gray-400">
                       <span>{formatTimeAgo(notification.createdAt)}</span>
                       {notification.caseId && (
-                        <span className="bg-slate-100 px-2 py-1 rounded text-xs">
+                        <span className="bg-slate-100 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded text-xs">
                           Case #{notification.caseId}
                         </span>
                       )}
@@ -205,7 +205,7 @@ const Notifications: React.FC = () => {
                   {!notification.read && (
                     <button
                       onClick={() => markAsRead(notification.id)}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-2 text-slate-400 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                       title="Mark as read"
                     >
                       <Check className="w-4 h-4" />
@@ -213,7 +213,7 @@ const Notifications: React.FC = () => {
                   )}
                   <button
                     onClick={() => deleteNotification(notification.id)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 text-slate-400 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Delete notification"
                   >
                     <X className="w-4 h-4" />
@@ -227,9 +227,9 @@ const Notifications: React.FC = () => {
 
       {filteredNotifications.length === 0 && (
         <div className="text-center py-12">
-          <Bell className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-          <div className="text-slate-400 text-lg">No notifications found</div>
-          <p className="text-slate-500 mt-2">
+          <Bell className="w-16 h-16 text-slate-400 dark:text-gray-500 mx-auto mb-4" />
+          <div className="text-slate-400 dark:text-gray-300 text-lg">No notifications found</div>
+          <p className="text-slate-500 dark:text-gray-400 mt-2">
             {searchTerm || filter !== 'all' 
               ? 'Try adjusting your search terms or filters' 
               : 'You\'re all caught up!'

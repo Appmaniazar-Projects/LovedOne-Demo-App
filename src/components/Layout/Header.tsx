@@ -52,17 +52,17 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
       <div className="flex items-center justify-between w-full">
         {/* Parlor Name */}
         <div>
-          <h1 className="text-xl font-bold text-slate-800">{parlorName}</h1>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">{parlorName}</h1>
         </div>
 
         {/* Search */}
         <div className="flex-1 max-w-md ml-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-400 w-5 h-5" />
             <input
               type="text"
               placeholder="Search cases, clients, or tasks..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -73,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              className="relative p-2 text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <Bell className="w-6 h-6" />
               {unreadNotifications > 0 && (
@@ -85,20 +85,20 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
 
             {showNotifications && (
               <div className={`absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700`}>
-                <div className="p-4 border-b border-slate-200">
-                  <h3 className="font-semibold text-slate-900">Notifications</h3>
+                <div className="p-4 border-b border-slate-200 dark:border-gray-700">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {mockNotifications.slice(0, 5).map((notification) => (
-                    <div key={notification.id} className="p-4 border-b border-slate-100 hover:bg-slate-50">
+                    <div key={notification.id} className="p-4 border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700">
                       <div className="flex items-start space-x-3">
                         <div className={`w-2 h-2 rounded-full mt-2 ${
                           notification.read ? 'bg-slate-300' : 'bg-blue-500'
                         }`} />
                         <div className="flex-1">
-                          <p className="font-medium text-slate-900">{notification.title}</p>
-                          <p className="text-sm text-slate-600">{notification.message}</p>
-                          <p className="text-xs text-slate-400 mt-1">
+                          <p className="font-medium text-slate-900 dark:text-gray-100">{notification.title}</p>
+                          <p className="text-sm text-slate-600 dark:text-gray-300">{notification.message}</p>
+                          <p className="text-xs text-slate-400 dark:text-gray-400 mt-1">
                             {notification.createdAt.toLocaleDateString()}
                           </p>
                         </div>
@@ -107,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
                   ))}
                 </div>
                 <div className="p-4">
-                  <button className="w-full text-blue-600 hover:text-blue-800 text-sm font-medium">
+                  <button className="w-full text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium">
                     View all notifications
                   </button>
                 </div>
@@ -132,7 +132,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           <div className="relative">
             <button
               onClick={() => setShowProfile(!showProfile)}
-              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors"
             >
               {loading ? (
                 <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
@@ -144,8 +144,8 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
                     className="w-8 h-8 rounded-full"
                   />
                   <div className="text-left">
-                    <p className="text-sm font-medium text-slate-900">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
-                    <p className="text-xs text-slate-500 capitalize">{user.role}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 capitalize">{user.role}</p>
                   </div>
                 </>
               )}
@@ -155,23 +155,23 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
               <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700`}>
                 {user && (
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-gray-700">
-                    <p className="font-medium text-slate-900 truncate">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
-                    <p className="text-sm text-slate-500 truncate" title={user.email}>{user.email}</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                    <p className="text-sm text-slate-500 dark:text-gray-400 truncate" title={user.email}>{user.email}</p>
                   </div>
                 )}
                 <div className="p-2">
-                  <Link to="profile" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
+                  <Link to="profile" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg">
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </Link>
-                  <Link to="settings" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 hover:bg-slate-100 rounded-lg">
+                  <Link to="settings" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg">
                     <Settings className="w-4 h-4" />
                     <span>Settings</span>
                   </Link>
-                  <hr className="my-2 border-slate-200" />
+                  <hr className="my-2 border-slate-200 dark:border-gray-700" />
                   <button
                     onClick={handleSignOut}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg"
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Sign out</span>
