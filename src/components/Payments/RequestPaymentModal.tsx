@@ -72,8 +72,8 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md relative transition-colors duration-200">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="rounded-lg shadow-2xl w-full max-w-md relative bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
@@ -82,12 +82,12 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
         </button>
 
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Request Payment</h2>
-          <p className="text-slate-600 dark:text-gray-300 mb-6">Enter payment details to generate a payment request</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900 mb-2">Request Payment</h2>
+          <p className="text-slate-800 dark:text-slate-800 mb-6">Enter payment details to generate a payment request</p>
           
           <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">
                 Amount (ZAR)
               </label>
               <input
@@ -104,7 +104,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">
+              <label htmlFor="description" className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">
                 Description
               </label>
               <textarea
@@ -119,7 +119,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             </div>
 
             <div id="checkout-container" className="hidden">
-              <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">Complete your payment using the form below:</p>
+              <p className="text-sm text-slate-800 dark:text-slate-800 mb-4">Complete your payment using the form below:</p>
               <div id="easypay-checkout" className="w-full"></div>
             </div>
 
@@ -127,7 +127,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
               >
                 Cancel
               </button>

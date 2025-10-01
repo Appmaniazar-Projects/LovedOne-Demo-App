@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, FileText, TrendingUp, Calendar, DollarSign, Users, BarChart3 } from 'lucide-react';
 import { mockAnalytics } from '../../data/mockData';
+import jsPDF from 'jspdf';
 
 const Reports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState('overview');
@@ -14,9 +15,147 @@ const Reports: React.FC = () => {
     }).format(amount);
   };
 
-  const generateReport = (type: string) => {
-    console.log(`Generating ${type} report...`);
-    // Here you would implement actual report generation
+  const exportReport = () => {
+    const reportName = reportTypes.find(r => r.id === selectedReport)?.name || 'Report';
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `${reportName.replace(/\s+/g, '_')}_${dateRange}_${timestamp}`;
+
+    // Create PDF
+    const doc = new jsPDF();
+    let yPosition = 20;
+
+    // Title
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(reportName, 20, yPosition);
+    yPosition += 10;
+
+    // Metadata
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date Range: ${dateRange}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, yPosition);
+    yPosition += 15;
+
+    // Content based on report type
+    doc.setFontSize(12);
+    
+    switch (selectedReport) {
+      case 'overview':
+        // Key Metrics Section
+        doc.setFont('helvetica', 'bold');
+        doc.text('KEY METRICS', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        doc.text(`Total Cases: ${mockAnalytics.totalCases}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Total Revenue: ${formatCurrency(mockAnalytics.totalRevenue)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Active Cases: ${mockAnalytics.activeCases}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Completed Cases: ${mockAnalytics.completedCases}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Task Completion Rate: ${mockAnalytics.taskCompletionRate}%`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Average Case Value: ${formatCurrency(mockAnalytics.avgCaseValue)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Monthly Revenue: ${formatCurrency(mockAnalytics.monthlyRevenue)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Pending Payments: ${mockAnalytics.pendingPayments}`, 25, yPosition);
+        yPosition += 12;
+
+        // Service Distribution
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('SERVICE DISTRIBUTION', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        doc.text('Burial Services: 45%', 25, yPosition);
+        yPosition += 6;
+        doc.text('Cremation Services: 35%', 25, yPosition);
+        yPosition += 6;
+        doc.text('Memorial Services: 20%', 25, yPosition);
+        yPosition += 12;
+
+        // Monthly Revenue Trend
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('MONTHLY REVENUE TREND', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        doc.text(`January: ${formatCurrency(150000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`February: ${formatCurrency(185000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`March: ${formatCurrency(220000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`April: ${formatCurrency(195000)}`, 25, yPosition);
+        break;
+        
+      case 'financial':
+        // Payment Methods
+        doc.setFont('helvetica', 'bold');
+        doc.text('PAYMENT METHODS', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        doc.text(`EFT: ${formatCurrency(500000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Card: ${formatCurrency(350000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`EasyPay: ${formatCurrency(250000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`SnapScan: ${formatCurrency(150000)}`, 25, yPosition);
+        yPosition += 12;
+
+        // Payment Status
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PAYMENT STATUS', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        doc.text(`Completed: ${formatCurrency(1100000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Pending: ${formatCurrency(100000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Failed: ${formatCurrency(25000)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Refunded: ${formatCurrency(25000)}`, 25, yPosition);
+        yPosition += 12;
+
+        // Key Metrics
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('KEY METRICS', 20, yPosition);
+        yPosition += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        doc.text(`Average Case Value: ${formatCurrency(mockAnalytics.avgCaseValue)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Monthly Revenue: ${formatCurrency(mockAnalytics.monthlyRevenue)}`, 25, yPosition);
+        yPosition += 6;
+        doc.text(`Pending Payments: ${mockAnalytics.pendingPayments}`, 25, yPosition);
+        break;
+        
+      default:
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`This report contains detailed ${reportName.toLowerCase()} information.`, 20, yPosition);
+    }
+
+    // Save PDF
+    doc.save(`${filename}.pdf`);
   };
 
   const reportTypes = [
@@ -261,7 +400,7 @@ const Reports: React.FC = () => {
             <option value="year">This Year</option>
           </select>
           <button
-            onClick={() => generateReport(selectedReport)}
+            onClick={exportReport}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <Download className="w-5 h-5" />

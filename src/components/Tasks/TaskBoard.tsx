@@ -6,7 +6,18 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 const TaskBoard: React.FC = () => {
   const { theme } = useTheme();
-  const [tasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    type: 'legal' as Task['type'],
+    priority: 'medium' as Task['priority'],
+    status: 'pending' as Task['status'],
+    assignedTo: '',
+    dueDate: '',
+    caseId: ''
+  });
 
   const statusColumns = [
     { 
@@ -104,6 +115,40 @@ const TaskBoard: React.FC = () => {
     return new Date(task.dueDate) < new Date() && task.status !== 'completed';
   };
 
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskForm.title || !taskForm.assignedTo || !taskForm.dueDate || !taskForm.caseId) {
+      return;
+    }
+
+    const newTask: Task = {
+      id: (tasks.length + 1).toString(),
+      title: taskForm.title,
+      description: taskForm.description,
+      type: taskForm.type,
+      priority: taskForm.priority,
+      status: taskForm.status,
+      assignedTo: taskForm.assignedTo,
+      dueDate: new Date(taskForm.dueDate),
+      caseId: taskForm.caseId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    setTasks(prev => [newTask, ...prev]);
+    setIsModalOpen(false);
+    setTaskForm({
+      title: '',
+      description: '',
+      type: 'legal',
+      priority: 'medium',
+      status: 'pending',
+      assignedTo: '',
+      dueDate: '',
+      caseId: ''
+    });
+  };
+
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
     const overdue = isOverdue(task);
     const priorityColor = getPriorityColor(task.priority);
@@ -169,6 +214,7 @@ const TaskBoard: React.FC = () => {
           <p className="text-slate-600 dark:text-gray-400">Track and manage workflow tasks</p>
         </div>
         <button 
+          onClick={() => setIsModalOpen(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 w-full md:w-auto justify-center"
         >
           <Plus className="w-5 h-5" />
@@ -241,6 +287,72 @@ const TaskBoard: React.FC = () => {
           );
         })}
       </div>
+
+      {/* New Task Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg shadow-2xl w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">New Task</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
+            </div>
+            <form onSubmit={handleAddTask} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Task Title</label>
+                  <input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. Obtain death certificate" required />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Description</label>
+                  <textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" rows={3} placeholder="Task details..." required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Type</label>
+                  <select value={taskForm.type} onChange={(e) => setTaskForm({ ...taskForm, type: e.target.value as Task['type'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
+                    <option value="legal">Legal</option>
+                    <option value="ceremonial">Ceremonial</option>
+                    <option value="burial">Burial</option>
+                    <option value="cremation">Cremation</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Priority</label>
+                  <select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as Task['priority'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Status</label>
+                  <select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as Task['status'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Assigned To</label>
+                  <input value={taskForm.assignedTo} onChange={(e) => setTaskForm({ ...taskForm, assignedTo: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="Person name" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Due Date</label>
+                  <input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-400 dark:hover:border-gray-500 transition-all cursor-pointer" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Case ID</label>
+                  <input value={taskForm.caseId} onChange={(e) => setTaskForm({ ...taskForm, caseId: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. 1" required />
+                </div>
+              </div>
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700">Cancel</button>
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Add Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,6 +15,14 @@ const ParlorSelector: React.FC = () => {
   const [parlors, setParlors] = useState<Parlor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [parlorForm, setParlorForm] = useState({
+    name: '',
+    slug: '',
+    address: ''
+  });
   const { theme, toggleTheme } = useTheme();
   const isDarkMode = theme === 'dark';
   const navigate = useNavigate();
@@ -58,6 +66,39 @@ const ParlorSelector: React.FC = () => {
 
     fetchParlors();
   }, []);
+
+  const handleCreateParlor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!parlorForm.name || !parlorForm.slug || !parlorForm.address) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('parlors')
+        .insert({
+          name: parlorForm.name,
+          slug: parlorForm.slug,
+          address: parlorForm.address
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setParlors(prev => [...prev, data]);
+        setIsModalOpen(false);
+        setParlorForm({ name: '', slug: '', address: '' });
+      }
+    } catch (err: any) {
+      console.error('Error creating parlor:', err.message);
+      alert('Failed to create parlor. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -125,13 +166,76 @@ const ParlorSelector: React.FC = () => {
             </div>
             <button
               className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              onClick={() => console.log('Create new parlor')}
+              onClick={() => setIsModalOpen(true)}
             >
               + Create New Parlor
             </button>
           </div>
         </div>
       </div>
+
+      {/* Create Parlor Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg shadow-2xl w-full max-w-md bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">Create New Parlor</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
+            </div>
+            <form onSubmit={handleCreateParlor} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Parlor Name</label>
+                <input 
+                  value={parlorForm.name} 
+                  onChange={(e) => setParlorForm({ ...parlorForm, name: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  placeholder="e.g. Peaceful Rest Funeral Home" 
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Slug (URL identifier)</label>
+                <input 
+                  value={parlorForm.slug} 
+                  onChange={(e) => setParlorForm({ ...parlorForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} 
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  placeholder="e.g. peaceful-rest" 
+                  required 
+                />
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">This will be used in the URL: /{parlorForm.slug || 'your-slug'}/dashboard</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Address</label>
+                <textarea 
+                  value={parlorForm.address} 
+                  onChange={(e) => setParlorForm({ ...parlorForm, address: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  rows={3}
+                  placeholder="e.g. 123 Main Street, Cape Town" 
+                  required 
+                />
+              </div>
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Parlor'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

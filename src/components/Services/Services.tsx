@@ -11,6 +11,18 @@ const Services: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [serviceForm, setServiceForm] = useState({
+    name: '',
+    date: '',
+    time: '',
+    venue: '',
+    type: 'funeral' as Service['type'],
+    caseId: '',
+    staff: '',
+    notes: ''
+  });
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,6 +122,42 @@ const Services: React.FC = () => {
       text: `In ${diffDays} days`, 
       color: theme === 'dark' ? 'text-green-400' : 'text-green-600' 
     };
+  };
+
+  const handleScheduleService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceForm.name || !serviceForm.date || !serviceForm.time || !serviceForm.venue || !serviceForm.caseId) {
+      return;
+    }
+
+    const staffArray = serviceForm.staff.split(',').map(s => s.trim()).filter(s => s);
+
+    const newService: Service = {
+      id: (services.length + 1).toString(),
+      name: serviceForm.name,
+      date: new Date(serviceForm.date),
+      time: serviceForm.time,
+      venue: serviceForm.venue,
+      type: serviceForm.type,
+      caseId: serviceForm.caseId,
+      staff: staffArray.length > 0 ? staffArray : ['Unassigned'],
+      notes: serviceForm.notes || undefined,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    setServices(prev => [newService, ...prev]);
+    setIsModalOpen(false);
+    setServiceForm({
+      name: '',
+      date: '',
+      time: '',
+      venue: '',
+      type: 'funeral',
+      caseId: '',
+      staff: '',
+      notes: ''
+    });
   };
 
   return (
@@ -319,7 +367,13 @@ const Services: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <button className="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                  <button 
+                    onClick={() => {
+                      setSelectedService(service);
+                      setIsDetailsModalOpen(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                  >
                     View Details
                   </button>
                 </div>
@@ -334,6 +388,157 @@ const Services: React.FC = () => {
           <Calendar className="w-16 h-16 text-slate-400 mx-auto mb-4" />
           <div className="text-slate-400 text-lg">No services found</div>
           <p className="text-slate-500 mt-2">Try adjusting your search terms or schedule a new service</p>
+        </div>
+      )}
+
+      {/* Service Details Modal */}
+      {isDetailsModalOpen && selectedService && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg shadow-2xl w-full max-w-2xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="text-3xl">{getServiceIcon(selectedService.type)}</div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">{selectedService.name}</h2>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getTypeColor(selectedService.type)} mt-1`}>
+                    {selectedService.type.charAt(0).toUpperCase() + selectedService.type.slice(1)}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setIsDetailsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Date & Time Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
+                    <Calendar className="w-5 h-5" />
+                    <span className="font-medium">Date</span>
+                  </div>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-900">
+                    {new Date(selectedService.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                  <p className={`text-sm mt-1 ${getDateStatus(selectedService.date).color}`}>
+                    {getDateStatus(selectedService.date).text}
+                  </p>
+                </div>
+                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
+                    <Clock className="w-5 h-5" />
+                    <span className="font-medium">Time</span>
+                  </div>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-900">{selectedService.time}</p>
+                </div>
+              </div>
+
+              {/* Venue Section */}
+              <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
+                  <MapPin className="w-5 h-5" />
+                  <span className="font-medium">Venue</span>
+                </div>
+                <p className="text-lg text-slate-900 dark:text-slate-900">{selectedService.venue}</p>
+              </div>
+
+              {/* Staff Section */}
+              <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-3">
+                  <Users className="w-5 h-5" />
+                  <span className="font-medium">Assigned Staff ({selectedService.staff.length})</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedService.staff.map((staff, index) => (
+                    <div key={index} className="flex items-center space-x-2 bg-blue-100 dark:bg-blue-900/30 px-3 py-2 rounded-full">
+                      <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-medium text-white">
+                        {staff.charAt(0)}
+                      </div>
+                      <span className="text-sm font-medium text-blue-900 dark:text-blue-200">{staff}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              {selectedService.notes && (
+                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
+                    <span className="font-medium">Notes</span>
+                  </div>
+                  <p className="text-slate-900 dark:text-slate-900">{selectedService.notes}</p>
+                </div>
+              )}
+
+              {/* Case ID */}
+              <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600 dark:text-slate-300">Case ID</span>
+                  <span className="font-mono font-semibold text-slate-900 dark:text-slate-900">#{selectedService.caseId}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-6 mt-6 border-t border-white/20">
+              <button onClick={() => setIsDetailsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Service Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg shadow-2xl w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">Schedule Service</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
+            </div>
+            <form onSubmit={handleScheduleService} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Service Name</label>
+                  <input value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. Memorial Service" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Service Type</label>
+                  <select value={serviceForm.type} onChange={(e) => setServiceForm({ ...serviceForm, type: e.target.value as Service['type'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
+                    <option value="funeral">Funeral</option>
+                    <option value="memorial">Memorial</option>
+                    <option value="cremation">Cremation</option>
+                    <option value="burial">Burial</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Case ID</label>
+                  <input value={serviceForm.caseId} onChange={(e) => setServiceForm({ ...serviceForm, caseId: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. 1" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Date</label>
+                  <input type="date" value={serviceForm.date} onChange={(e) => setServiceForm({ ...serviceForm, date: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-400 dark:hover:border-gray-500 transition-all cursor-pointer" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Time</label>
+                  <input type="time" value={serviceForm.time} onChange={(e) => setServiceForm({ ...serviceForm, time: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-400 dark:hover:border-gray-500 transition-all cursor-pointer" required />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Venue</label>
+                  <input value={serviceForm.venue} onChange={(e) => setServiceForm({ ...serviceForm, venue: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. St. Mary's Church, Cape Town" required />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Staff (comma-separated)</label>
+                  <input value={serviceForm.staff} onChange={(e) => setServiceForm({ ...serviceForm, staff: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. John Doe, Jane Smith" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Notes (optional)</label>
+                  <textarea value={serviceForm.notes} onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" rows={3} placeholder="Additional notes or special requirements..." />
+                </div>
+              </div>
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700">Cancel</button>
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Schedule Service</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
