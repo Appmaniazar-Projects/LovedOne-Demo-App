@@ -5,6 +5,7 @@ import ViewPaymentModal from './ViewPaymentModal';
 import { supabase } from '../../supabaseClient';
 import { Payment } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useCountUp } from '../../hooks/useCountUp';
 
 const Payments: React.FC = () => {
   const { theme } = useTheme();
@@ -98,6 +99,13 @@ const Payments: React.FC = () => {
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0);
 
+  const successfulTransactions = payments.filter(p => p.status === 'completed').length;
+
+  // Animated values
+  const animatedTotalRevenue = useCountUp(totalRevenue, 3000, 100);
+  const animatedPendingAmount = useCountUp(pendingAmount, 3000, 150);
+  const animatedSuccessfulTransactions = useCountUp(successfulTransactions, 3000, 200);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -119,82 +127,82 @@ const Payments: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-fadeIn">
       <RequestPaymentModal isOpen={isRequestModalOpen} onClose={() => setIsRequestModalOpen(false)} />
       <ViewPaymentModal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} payment={selectedPayment} />
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 animate-fadeInDown">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Payments</h1>
           <p className="text-slate-600 dark:text-gray-300">Manage and track all payments</p>
         </div>
         <button
           onClick={() => setIsRequestModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-all duration-300 hover:scale-105 hover:shadow-lg"
         >
           <Plus className="w-5 h-5" />
           <span>Request Payment</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 animate-fadeInUp" style={{ animationDelay: '100ms' }}>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-gray-400">Total Revenue</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(animatedTotalRevenue)}</p>
             </div>
-            <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+            <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6">
               <TrendingUp className="w-6 h-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-gray-400">Pending Payments</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{formatCurrency(pendingAmount)}</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{formatCurrency(animatedPendingAmount)}</p>
             </div>
-            <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400">
+            <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6">
               <AlertCircle className="w-6 h-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-gray-400">Successful Transactions</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {payments.filter(p => p.status === 'completed').length}
+                {animatedSuccessfulTransactions}
               </p>
             </div>
-            <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+            <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6">
               <CheckCircle className="w-6 h-6" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 mb-6 animate-fadeInUp" style={{ animationDelay: '200ms' }}>
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-5 h-5 transition-all duration-300 peer-focus:text-blue-500 peer-focus:scale-110" />
           <input
             type="text"
             placeholder="Search payments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 transition-all duration-300 hover:border-blue-400 focus:scale-[1.02] peer"
           />
         </div>
 
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-          <div className="relative">
+          <div className="relative group">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="appearance-none bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 hover:scale-105 cursor-pointer"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -202,18 +210,18 @@ const Payments: React.FC = () => {
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700 dark:text-gray-300">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110">
+              <svg className="fill-current h-4 w-4 transition-transform duration-300 group-hover:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
               </svg>
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative group">
             <select
               value={methodFilter}
               onChange={(e) => setMethodFilter(e.target.value)}
-              className="appearance-none bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="appearance-none bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 hover:scale-105 cursor-pointer"
             >
               <option value="all">All Methods</option>
               <option value="eft">EFT</option>
@@ -221,8 +229,8 @@ const Payments: React.FC = () => {
               <option value="snapscan">SnapScan</option>
               <option value="card">Card</option>
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700 dark:text-gray-300">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110">
+              <svg className="fill-current h-4 w-4 transition-transform duration-300 group-hover:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
               </svg>
             </div>
@@ -230,7 +238,7 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
-      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} rounded-lg border overflow-hidden transition-colors duration-200`}>
+      <div className={`${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} rounded-lg border overflow-hidden transition-colors duration-200 animate-fadeInUp`} style={{ animationDelay: '300ms' }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className={theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}>
@@ -244,10 +252,11 @@ const Payments: React.FC = () => {
               </tr>
             </thead>
             <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-800' : 'divide-gray-200'}`}>
-              {filteredPayments.map((payment) => (
+              {filteredPayments.map((payment, index) => (
                 <tr 
                   key={payment.id} 
-                  className={`${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-50'} transition-colors`}
+                  className={`${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-50'} transition-all duration-300 hover:scale-[1.01] animate-fadeInUp`}
+                  style={{ animationDelay: `${400 + index * 30}ms` }}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
@@ -265,7 +274,7 @@ const Payments: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'}`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110`}>
                       {payment.method === 'card' ? 'CARD' : 
                        payment.method === 'eft' ? 'BANK TRANSFER' : 
                        payment.method === 'easypay' ? 'EASYPAY' : 
@@ -274,7 +283,7 @@ const Payments: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${statusColors[payment.status]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'}`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${statusColors[payment.status]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110`}>
                       {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                     </span>
                   </td>
@@ -288,12 +297,12 @@ const Payments: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button 
                       onClick={() => handleViewPayment(payment)} 
-                      className={`${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} mr-4 transition-colors font-medium`}
+                      className={`${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} mr-4 transition-all duration-300 font-medium hover:scale-110`}
                     >
                       View
                     </button>
                     <button 
-                      className={`${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-colors font-medium`}
+                      className={`${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-all duration-300 font-medium hover:scale-110`}
                       onClick={() => {
                         // TODO: Implement download functionality
                         console.log('Download payment:', payment.id);

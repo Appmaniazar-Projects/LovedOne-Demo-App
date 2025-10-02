@@ -48,43 +48,53 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
   };
 
   return (
-    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4 w-full`}>
+    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4 w-full animate-slideInDown`}>
       <div className="flex items-center justify-between w-full">
         {/* Parlor Name */}
-        <div>
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">{parlorName}</h1>
+        <div className="animate-fadeIn animation-delay-100">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+            {parlorName.split('').map((letter, index) => (
+              <span 
+                key={index} 
+                className="animate-fadeInLetter"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
+                {letter === ' ' ? '\u00A0' : letter}
+              </span>
+            ))}
+          </h1>
         </div>
 
         {/* Search */}
-        <div className="flex-1 max-w-md ml-6">
+        <div className="flex-1 max-w-md ml-6 animate-fadeIn animation-delay-200">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-400 w-5 h-5 animate-pulse-slow" />
             <input
               type="text"
               placeholder="Search cases, clients, or tasks..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:shadow-md"
             />
           </div>
         </div>
 
         {/* Right section */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 animate-fadeIn animation-delay-300">
           {/* Notifications */}
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="relative p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-300 hover:scale-110"
             >
-              <Bell className="w-6 h-6" />
+              <Bell className="w-6 h-6 text-yellow-500 transition-transform duration-300 hover:rotate-12" />
               {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-bounce">
                   {unreadNotifications}
                 </span>
               )}
             </button>
 
             {showNotifications && (
-              <div className={`absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700`}>
+              <div className={`absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown`}>
                 <div className="p-4 border-b border-slate-200 dark:border-gray-700">
                   <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
                 </div>
@@ -118,13 +128,13 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 hover:rotate-180"
             aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? (
-              <Sun className="w-5 h-5" />
+              <Sun className="w-5 h-5 animate-spin-slow text-white" />
             ) : (
-              <Moon className="w-5 h-5" />
+              <Moon className="w-5 h-5 animate-spin-slow text-black" />
             )}
           </button>
 
@@ -132,7 +142,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           <div className="relative">
             <button
               onClick={() => setShowProfile(!showProfile)}
-              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105"
             >
               {loading ? (
                 <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
@@ -141,7 +151,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
                   <img
                     src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}&background=0D8ABC&color=fff`}
                     alt={user.full_name}
-                    className="w-8 h-8 rounded-full"
+                    className="w-8 h-8 rounded-full transition-transform duration-300 hover:scale-110 hover:rotate-6"
                   />
                   <div className="text-left">
                     <p className="text-sm font-medium text-slate-900 dark:text-white">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
@@ -152,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
             </button>
 
             {showProfile && (
-              <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700`}>
+              <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown`}>
                 {user && (
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-gray-700">
                     <p className="font-medium text-slate-900 dark:text-white truncate">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>

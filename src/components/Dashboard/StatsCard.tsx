@@ -1,5 +1,6 @@
 import React from 'react';
 import { DivideIcon as LucideIcon } from 'lucide-react';
+import { useCountUp } from '../../hooks/useCountUp';
 
 interface StatsCardProps {
   title: string;
@@ -8,6 +9,7 @@ interface StatsCardProps {
   change?: string;
   changeType?: 'increase' | 'decrease' | 'neutral';
   color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple';
+  animationDelay?: number;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({
@@ -16,8 +18,40 @@ const StatsCard: React.FC<StatsCardProps> = ({
   icon: Icon,
   change,
   changeType = 'neutral',
-  color = 'blue'
+  color = 'blue',
+  animationDelay = 0
 }) => {
+  // Extract numeric value for animation
+  const getNumericValue = (val: string | number): number | null => {
+    if (typeof val === 'number') return val;
+    // Try to extract number from string (e.g., "R 25,000" or "85%")
+    const match = val.toString().replace(/,/g, '').match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : null;
+  };
+
+  const numericValue = getNumericValue(value);
+  const animatedValue = useCountUp(numericValue || 0, 3000, animationDelay);
+
+  // Format the animated value back to the original format
+  const displayValue = React.useMemo(() => {
+    if (numericValue === null) return value;
+    
+    const valueStr = value.toString();
+    
+    // Check if it's a percentage
+    if (valueStr.includes('%')) {
+      return `${animatedValue}%`;
+    }
+    
+    // Check if it's currency
+    if (valueStr.includes('R')) {
+      return valueStr.replace(/[\d,]+/, animatedValue.toLocaleString('en-ZA'));
+    }
+    
+    // Default: just return the number
+    return animatedValue;
+  }, [animatedValue, value, numericValue]);
+
   const colorClasses = {
     blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
     green: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400',
@@ -37,7 +71,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{displayValue}</p>
           {change && (
             <p className={`text-sm mt-2 ${changeClasses[changeType]} flex items-center`}>
               {changeType === 'increase' && (

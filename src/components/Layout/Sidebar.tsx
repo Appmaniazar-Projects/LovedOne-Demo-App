@@ -51,37 +51,39 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
   }, []);
 
   return (
-    <div className={`w-64 bg-${theme === 'dark' ? 'slate-900' : 'white'} text-${theme === 'dark' ? 'white' : 'slate-900'} h-full flex flex-col border-r border-slate-200 dark:border-slate-700`}>
+    <div className={`w-64 bg-${theme === 'dark' ? 'slate-900' : 'white'} text-${theme === 'dark' ? 'white' : 'slate-900'} h-full flex flex-col border-r border-slate-200 dark:border-slate-700 animate-slideInLeft`}>
       {/* Logo */}
-      <div className="p-6 border-b border-slate-700">
+      <div className="p-6 border-b border-slate-700 animate-fadeIn">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Heart className="w-6 h-6" />
+          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center animate-pulse-slow">
+            <Heart className="w-6 h-6 animate-heartbeat text-red-500 fill-red-500" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">LovedOne</h1>
-            <p className="text-xs text-slate-400">Funeral Management</p>
+            <h1 className="text-xl font-bold animate-fadeInUp bg-gradient-to-r from-red-600 via-red-400 to-white bg-clip-text text-transparent hover:scale-110 transition-all duration-300 cursor-pointer animate-pulse-text animate-gradient-shift drop-shadow-lg">
+              LovedOne
+            </h1>
+            <p className="text-xs text-slate-400 animate-fadeInUp animation-delay-100">Funeral Management</p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
-          {menuItems.map((item) => {
+      <nav className="flex-1 p-4 flex flex-col">
+        <ul className="flex-1 flex flex-col justify-between">
+          {menuItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
-              <li key={item.id}>
+              <li key={item.id} className="animate-fadeInUp" style={{ animationDelay: `${index * 150}ms` }}>
                 <Link
                   to={item.path}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                  className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-left transition-all duration-300 transform hover:scale-105 hover:translate-x-1 ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-lg'
                       : `text-${theme === 'dark' ? 'slate-300' : 'slate-900'} hover:bg-${theme === 'dark' ? 'slate-800' : 'slate-100'} hover:text-${theme === 'dark' ? 'white' : 'slate-900'}`
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
                   <span className="text-sm font-medium">{item.label}</span>
                 </Link>
               </li>
@@ -91,8 +93,8 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-700">
-        <p className="text-xs text-slate-400 text-center">
+      <div className="p-4 border-t border-slate-700 dark:border-slate-700 animate-fadeIn animation-delay-500">
+        <p className="text-sm text-slate-900 dark:text-slate-400 text-center animate-pulse-text">
           &copy; 2025 LovedOne<br />
           Compassionate tech for life's hardest moments
         </p>

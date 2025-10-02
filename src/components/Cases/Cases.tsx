@@ -75,19 +75,19 @@ const Cases: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fadeInDown">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Cases</h1>
           <p className="text-slate-600 dark:text-gray-300">Manage deceased profiles and service cases</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2">
+        <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 hover:scale-105 hover:shadow-lg">
           <Plus className="w-5 h-5" />
           <span>New Case</span>
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200 animate-fadeInUp" style={{ animationDelay: '100ms' }}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-5 h-5" />
@@ -128,24 +128,24 @@ const Cases: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fadeInUp" style={{ animationDelay: '200ms' }}>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer">
           <p className="text-sm text-slate-600 dark:text-gray-300">Total Cases</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white">{cases.length}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer">
           <p className="text-sm text-slate-600 dark:text-gray-300">Active Cases</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {cases.filter(c => c.status === 'ongoing').length}
           </p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer">
           <p className="text-sm text-slate-600 dark:text-gray-300">Quotes</p>
           <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {cases.filter(c => c.status === 'quote').length}
           </p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-colors duration-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-4 transition-all duration-300 hover:shadow-md hover:scale-105 cursor-pointer">
           <p className="text-sm text-slate-600 dark:text-gray-300">Completed</p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             {cases.filter(c => c.status === 'closed').length}
@@ -156,12 +156,13 @@ const Cases: React.FC = () => {
       {/* Cases Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCases.length > 0 ? (
-          filteredCases.map((caseData) => (
-            <CaseCard
-              key={caseData.id}
-              case={caseData}
-              onClick={() => console.log('View case', caseData.id)}
-            />
+          filteredCases.map((caseData, index) => (
+            <div key={caseData.id} className="animate-fadeInUp" style={{ animationDelay: `${300 + index * 50}ms` }}>
+              <CaseCard
+                case={caseData}
+                onClick={() => console.log('View case', caseData.id)}
+              />
+            </div>
           ))
         ) : (
           <div className="col-span-full py-12 text-center">
@@ -179,8 +180,8 @@ const Cases: React.FC = () => {
 
       {/* New Case Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="rounded-lg shadow-2xl p-8 w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+          <div className="rounded-lg shadow-2xl p-8 w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 animate-fadeInUp">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-slate-900 dark:text-white">New Case</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
