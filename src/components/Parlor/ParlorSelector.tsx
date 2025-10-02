@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { Building, Sun, Moon } from 'lucide-react';
+import { Building, Sun, Moon, Edit2, Trash2 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface Parlor {
@@ -16,8 +16,10 @@ const ParlorSelector: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [selectedParlor, setSelectedParlor] = useState<Parlor | null>(null);
   const [parlorForm, setParlorForm] = useState({
     name: '',
     slug: '',
@@ -100,6 +102,71 @@ const ParlorSelector: React.FC = () => {
     }
   };
 
+  const handleEditParlor = (parlor: Parlor) => {
+    setSelectedParlor(parlor);
+    setParlorForm({
+      name: parlor.name,
+      slug: parlor.slug,
+      address: parlor.address
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateParlor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedParlor || !parlorForm.name || !parlorForm.slug || !parlorForm.address) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('parlors')
+        .update({
+          name: parlorForm.name,
+          slug: parlorForm.slug,
+          address: parlorForm.address
+        })
+        .eq('id', selectedParlor.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setParlors(prev => prev.map(p => p.id === data.id ? data : p));
+        setIsEditModalOpen(false);
+        setParlorForm({ name: '', slug: '', address: '' });
+        setSelectedParlor(null);
+      }
+    } catch (err: any) {
+      console.error('Error updating parlor:', err.message);
+      alert('Failed to update parlor. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteParlor = async (parlorId: string) => {
+    if (!confirm('Are you sure you want to delete this parlor? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('parlors')
+        .delete()
+        .eq('id', parlorId);
+
+      if (error) throw error;
+
+      setParlors(prev => prev.filter(p => p.id !== parlorId));
+    } catch (err: any) {
+      console.error('Error deleting parlor:', err.message);
+      alert('Failed to delete parlor. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -151,15 +218,41 @@ const ParlorSelector: React.FC = () => {
               {parlors.map((parlor) => (
                 <div 
                   key={parlor.id} 
-                  className="flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
-                  onClick={() => navigate(`/${parlor.slug}/dashboard`)}
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-                    <Building className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div 
+                    className="flex items-center flex-1 cursor-pointer"
+                    onClick={() => navigate(`/${parlor.slug}/dashboard`)}
+                  >
+                    <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                      <Building className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">{parlor.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{parlor.address}</p>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{parlor.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{parlor.address}</p>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditParlor(parlor);
+                      }}
+                      className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                      title="Edit parlor"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteParlor(parlor.id);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      title="Delete parlor"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -173,6 +266,77 @@ const ParlorSelector: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Parlor Modal */}
+      {isEditModalOpen && selectedParlor && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg shadow-2xl w-full max-w-md bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">Edit Parlor</h2>
+              <button onClick={() => {
+                setIsEditModalOpen(false);
+                setSelectedParlor(null);
+                setParlorForm({ name: '', slug: '', address: '' });
+              }} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
+            </div>
+            <form onSubmit={handleUpdateParlor} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Parlor Name</label>
+                <input 
+                  value={parlorForm.name} 
+                  onChange={(e) => setParlorForm({ ...parlorForm, name: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  placeholder="e.g. Peaceful Rest Funeral Home" 
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Slug (URL identifier)</label>
+                <input 
+                  value={parlorForm.slug} 
+                  onChange={(e) => setParlorForm({ ...parlorForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} 
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  placeholder="e.g. peaceful-rest" 
+                  required 
+                />
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">This will be used in the URL: /{parlorForm.slug || 'your-slug'}/dashboard</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Address</label>
+                <textarea 
+                  value={parlorForm.address} 
+                  onChange={(e) => setParlorForm({ ...parlorForm, address: e.target.value })} 
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  rows={3}
+                  placeholder="e.g. 123 Main Street, Cape Town" 
+                  required 
+                />
+              </div>
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setSelectedParlor(null);
+                    setParlorForm({ name: '', slug: '', address: '' });
+                  }} 
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Updating...' : 'Update Parlor'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create Parlor Modal */}
       {isModalOpen && (
