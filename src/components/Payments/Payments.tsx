@@ -323,11 +323,18 @@ Generated on: ${new Date().toLocaleString('en-US')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md`}>
-                      {payment.method === 'card' ? 'CARD' : 
-                       payment.method === 'eft' ? 'BANK TRANSFER' : 
-                       payment.method === 'easypay' ? 'EASYPAY' : 
-                       payment.method === 'snapscan' ? 'SNAPSCAN' : 
-                       payment.method?.toUpperCase()}
+                      {(() => {
+                        switch (payment.method) {
+                          case 'card': return 'CARD';
+                          case 'eft': return 'BANK TRANSFER';
+                          case 'easypay': return 'EASYPAY';
+                          case 'snapscan': return 'SNAPSCAN';
+                          default:
+                            // Fallback for any other method not explicitly handled
+                            const unhandledMethod = payment.method as string;
+                            return unhandledMethod ? unhandledMethod.toUpperCase() : 'UNKNOWN';
+                        }
+                      })()}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
