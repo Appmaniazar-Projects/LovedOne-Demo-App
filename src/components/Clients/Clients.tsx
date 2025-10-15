@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight } from 'lucide-react';
+import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight, FileText } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { supabase } from '../../supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import AddClientModal from './AddClientModal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getMockClients } from '../../data/mockClients';
 
-interface Client {
+export interface Client {
   id: string;
   name: string;
   relationship: string;
@@ -15,6 +16,7 @@ interface Client {
   cultural_preferences: string;
   created_at: string;
   user_id: string | null;
+  document_count?: number;
 }
 
 interface Profile {
@@ -25,6 +27,7 @@ interface Profile {
 
 const Clients: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme: _ } = useTheme();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,15 +41,95 @@ const Clients: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("No user logged in");
+        setError(null); // Clear any previous errors
+        const saveToLocalCache = (items: Client[]) => {
+          try {
+            localStorage.setItem('lovedone_mock_clients', JSON.stringify(items));
+          } catch {}
+        };
+        const readFromLocalCache = (): Client[] => {
+          try {
+            const raw = localStorage.getItem('lovedone_mock_clients');
+            return raw ? JSON.parse(raw) : [];
+          } catch {
+            return [];
+          }
+        };
+        
+        // Check if Supabase is configured
+        if (!isSupabaseConfigured()) {
+          console.log('Supabase not configured, using mock mode with dummy data');
+          // Set mock profile as super_admin to see all clients
+          const mockProfile = {
+            id: 'mock-user',
+            role: 'super_admin' as const,
+            full_name: 'Mock Super Admin'
+          };
+          setUserProfile(mockProfile);
+          
+          // Load mock clients from localStorage
+          const mockClients = getMockClients();
+          console.log('Loaded mock clients:', mockClients);
+          console.log('Number of mock clients:', mockClients.length);
+          setClients(mockClients);
+          saveToLocalCache(mockClients as any);
+          setLoading(false);
+          return;
+        }
 
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, role, full_name')
-          .eq('id', user.id)
-          .single();
+        console.log('Supabase is configured, proceeding with real database');
+
+        // Try to get user from Supabase
+        let user = null;
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          user = authUser;
+        } catch (authError) {
+          console.log('Supabase auth not available, using mock mode:', authError);
+        }
+
+        if (!user) {
+          console.log('No user logged in, using mock mode with dummy data');
+          // Use mock data if no user is logged in - set as super_admin to see all clients
+          const mockProfile = {
+            id: 'mock-user',
+            role: 'super_admin' as const,
+            full_name: 'Mock Super Admin'
+          };
+          setUserProfile(mockProfile);
+          
+          // Load mock clients from localStorage
+          const mockClients = getMockClients();
+          console.log('Loaded mock clients:', mockClients);
+          console.log('Number of mock clients:', mockClients.length);
+          setClients(mockClients);
+          saveToLocalCache(mockClients as any);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Fetching data for user:', user.id);
+
+        // Fetch user profile (with fallback if profiles table doesn't exist)
+        let profile = null;
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, role, full_name')
+            .eq('id', user.id)
+            .single();
+          profile = profileData;
+        } catch (profileError) {
+          console.log('Profiles table may not exist, using default staff role:', profileError);
+          // Create a default profile object if profiles table doesn't exist
+          profile = {
+            id: user.id,
+            role: 'staff',
+            full_name: user.email || 'User'
+          };
+        }
+
+        console.log('User profile:', profile);
 
         if (profile) {
           setUserProfile(profile);
@@ -58,30 +141,78 @@ const Clients: React.FC = () => {
             query = query.eq('user_id', user.id);
           }
 
+          console.log('Fetching clients with query for role:', profile.role);
           const { data: clientsData, error: clientsError } = await query;
-          if (clientsError) throw clientsError;
+          
+          if (clientsError) {
+            console.error('Error fetching clients:', clientsError);
+            // Fallback to cache
+            const cached = readFromLocalCache();
+            setClients(cached);
+            return;
+          }
+
+          console.log('Fetched clients data:', clientsData);
+
+          // Fetch document counts for each client (with fallback if client_documents table doesn't exist)
+          if (clientsData && clientsData.length > 0) {
+            const clientsWithDocCounts = await Promise.all(
+              clientsData.map(async (client) => {
+                try {
+                  const { count } = await supabase
+                    .from('client_documents')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('client_id', client.id);
+                  return { ...client, document_count: count || 0 };
+                } catch (docError) {
+                  console.log('Could not fetch document count for client:', client.id, docError);
+                  return { ...client, document_count: 0 };
+                }
+              })
+            );
+            // Merge with cached local clients (union by id)
+            const cached = readFromLocalCache();
+            const cachedById = new Map((cached || []).map((c) => [c.id, c]));
+            const mergedMap = new Map<string, any>();
+            for (const c of clientsWithDocCounts as any) mergedMap.set(c.id, c);
+            for (const c of cachedById.values()) if (!mergedMap.has(c.id)) mergedMap.set(c.id, c);
+            const merged = Array.from(mergedMap.values());
+            setClients(merged as any);
+            saveToLocalCache(merged as any);
+          } else {
+            // No remote clients; use cache if present
+            const cached = readFromLocalCache();
+            setClients(cached);
+          }
 
           // If admin/super_admin, fetch staff for assignment
           if (profile.role === 'admin' || profile.role === 'super_admin') {
-            const { data: staffData } = await supabase
-              .from('profiles')
-              .select('id, full_name, role')
-              .eq('role', 'staff');
-            setStaffList(staffData || []);
+            try {
+              const { data: staffData } = await supabase
+                .from('profiles')
+                .select('id, full_name, role')
+                .eq('role', 'staff');
+              setStaffList(staffData || []);
+            } catch (staffError) {
+              console.log('Could not fetch staff list:', staffError);
+              setStaffList([]);
+            }
           }
-
-          setClients(clientsData || []);
+        } else {
+          console.log('No profile found for user');
+          setClients([]);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error in fetchData:', error);
         setError(error instanceof Error ? error.message : 'An error occurred');
+        setClients([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [location.pathname]); // Refetch when navigating back to this page
 
   const handleAssignClient = async (clientId: string, newStaffId: string) => {
     try {
@@ -116,6 +247,8 @@ const Clients: React.FC = () => {
   if (error) {
     return <div className="p-6 text-center text-red-500 dark:text-red-400">Error: {error}</div>;
   }
+
+  console.log('Rendering clients component with:', { clients: clients.length, searchTerm, filteredClients: filteredClients.length });
 
   return (
     <div className="p-6">
@@ -160,7 +293,7 @@ const Clients: React.FC = () => {
             <div
               key={client.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow cursor-pointer border border-gray-200 dark:border-gray-700"
-              onClick={() => navigate(`/clients/${client.id}`)}
+              onClick={() => navigate(`${client.id}`)}
             >
               <div className="p-6">
                 <div className="flex justify-between items-start">
@@ -176,7 +309,7 @@ const Clients: React.FC = () => {
                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/clients/${client.id}`);
+                      navigate(`${client.id}`);
                     }}
                   >
                     <ArrowRight className="w-5 h-5" />
@@ -203,16 +336,22 @@ const Clients: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/clients/${client.id}`);
+                        navigate(`${client.id}`);
                       }}
                       className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
                     >
                       View Details
                       <ArrowRight className="w-4 h-4 ml-1" />
                     </button>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Added: {new Date(client.created_at).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <FileText className="w-4 h-4 mr-1" />
+                        <span>{client.document_count || 0} docs</span>
+                      </div>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(client.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -252,7 +391,14 @@ const Clients: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onClientAdded={(newClient: Client) => {
-          setClients((prevClients) => [...prevClients, newClient]);
+          console.log('New client added:', newClient);
+          // Add document count to new client
+          const clientWithDocCount = { ...newClient, document_count: 0 };
+          setClients((prevClients) => {
+            const next = [...prevClients, clientWithDocCount];
+            try { localStorage.setItem('lovedone_mock_clients', JSON.stringify(next)); } catch {}
+            return next;
+          });
           setIsModalOpen(false);
         }}
       />

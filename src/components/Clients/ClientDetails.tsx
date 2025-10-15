@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { ArrowLeft, Phone, Mail, MapPin, User as UserIcon, Calendar, Edit, Save, X, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, User as UserIcon, Calendar, Edit, Save, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import ClientDocuments from './ClientDocuments';
 
 interface Client {
   id: string;
@@ -32,6 +33,13 @@ const ClientDetails: React.FC = () => {
     if (!e.target.files || e.target.files.length === 0) return;
     
     const file = e.target.files[0];
+    
+    // Check if this is a mock client
+    if (id?.startsWith('mock-client-')) {
+      toast.error('Profile picture upload is not available in demo mode');
+      return;
+    }
+    
     const fileExt = file.name.split('.').pop();
     const fileName = `${id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
     const filePath = `profile-pictures/${fileName}`;
@@ -81,6 +89,25 @@ const ClientDetails: React.FC = () => {
 
       try {
         setLoading(true);
+        
+        // Check if this is a mock client (ID starts with 'mock-client-')
+        if (id.startsWith('mock-client-')) {
+          console.log('Fetching mock client:', id);
+          const { getMockClients } = await import('../../data/mockClients');
+          const mockClients = getMockClients();
+          const mockClient = mockClients.find(c => c.id === id);
+          
+          if (!mockClient) {
+            throw new Error('Mock client not found');
+          }
+          
+          setClient(mockClient);
+          setEditingClient({ ...mockClient });
+          setLoading(false);
+          return;
+        }
+        
+        // Otherwise fetch from Supabase
         const { data, error } = await supabase
           .from('clients')
           .select('*')
@@ -90,7 +117,7 @@ const ClientDetails: React.FC = () => {
         if (error) throw error;
         if (!data) throw new Error('Client not found');
 
-setClient(data);
+        setClient(data);
         setEditingClient({ ...data });
       } catch (err: any) {
         console.error('Error fetching client:', err);
@@ -143,6 +170,32 @@ setClient(data);
     
     setSaving(true);
     try {
+      // Check if this is a mock client
+      if (id.startsWith('mock-client-')) {
+        console.log('Updating mock client:', id);
+        const { updateMockClient } = await import('../../data/mockClients');
+        const updatedClient = updateMockClient(id, {
+          name: editingClient.name,
+          relationship: editingClient.relationship,
+          email: editingClient.email,
+          phone: editingClient.phone,
+          address: editingClient.address,
+          cultural_preferences: editingClient.cultural_preferences,
+          profile_picture_url: editingClient.profile_picture_url
+        });
+        
+        if (!updatedClient) {
+          throw new Error('Failed to update mock client');
+        }
+        
+        setClient(updatedClient);
+        setIsEditing(false);
+        toast.success('Client updated successfully');
+        setSaving(false);
+        return;
+      }
+      
+      // Otherwise update in Supabase
       const { data, error } = await supabase
         .from('clients')
         .update({
@@ -176,7 +229,7 @@ setClient(data);
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+          className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Clients
@@ -204,7 +257,7 @@ setClient(data);
                 setIsEditing(false);
                 setEditingClient(client ? { ...client } : null);
               }}
-              className="ml-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              className="ml-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               <X className="w-4 h-4 mr-2 inline" />
               Cancel
@@ -213,8 +266,8 @@ setClient(data);
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-700 dark:to-blue-900 p-6 text-white">
           <div className="flex items-center">
             <div className="relative group">
               <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-6 overflow-hidden">
@@ -254,20 +307,20 @@ setClient(data);
                     name="name"
                     value={editingClient?.name || ''}
                     onChange={handleInputChange}
-                    className="w-full p-2 rounded border border-gray-300"
+                    className="w-full p-2 rounded border border-gray-300 text-gray-900 bg-white"
                   />
                   <input
                     type="text"
                     name="relationship"
                     value={editingClient?.relationship || ''}
                     onChange={handleInputChange}
-                    className="w-full p-2 rounded border border-gray-300 text-sm"
+                    className="w-full p-2 rounded border border-gray-300 text-sm text-gray-900 bg-white"
                     placeholder="Relationship"
                   />
                 </div>
               ) : (
                 <>
-                  <h3 className="font-semibold text-slate-900">{client.name}</h3>
+                  <h3 className="font-semibold text-white text-2xl">{client.name}</h3>
                   <p className="text-blue-100">{client.relationship}</p>
                 </>
               )}
@@ -278,56 +331,56 @@ setClient(data);
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Contact Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Contact Information</h2>
               <div className="space-y-4">
                 <div className="flex items-start">
                   <Mail className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
                   <div className="w-full">
-                    <p className="text-sm text-gray-500">Email</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
                     {isEditing ? (
                       <input
                         type="email"
                         name="email"
                         value={editingClient?.email || ''}
                         onChange={handleInputChange}
-                        className="w-full p-2 rounded border border-gray-300"
+                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700"
                       />
                     ) : (
-                      <p className="text-gray-800">{client.email || 'N/A'}</p>
+                      <p className="text-gray-800 dark:text-gray-200">{client.email || 'N/A'}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-start">
                   <Phone className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
                   <div className="w-full">
-                    <p className="text-sm text-gray-500">Phone</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
                     {isEditing ? (
                       <input
                         type="tel"
                         name="phone"
                         value={editingClient?.phone || ''}
                         onChange={handleInputChange}
-                        className="w-full p-2 rounded border border-gray-300"
+                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700"
                       />
                     ) : (
-                      <p className="text-gray-800">{client.phone || 'N/A'}</p>
+                      <p className="text-gray-800 dark:text-gray-200">{client.phone || 'N/A'}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-start">
                   <MapPin className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
                   <div className="w-full">
-                    <p className="text-sm text-gray-500">Address</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Address</p>
                     {isEditing ? (
                       <textarea
                         name="address"
                         value={editingClient?.address || ''}
                         onChange={handleInputChange}
                         rows={2}
-                        className="w-full p-2 rounded border border-gray-300"
+                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700"
                       />
                     ) : (
-                      <p className="text-gray-800">{client.address || 'N/A'}</p>
+                      <p className="text-gray-800 dark:text-gray-200">{client.address || 'N/A'}</p>
                     )}
                   </div>
                 </div>
@@ -335,22 +388,22 @@ setClient(data);
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Additional Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Additional Information</h2>
               <div className="space-y-4">
                 <div>
                   {isEditing ? (
                     <div>
-                      <label className="block text-sm font-medium text-blue-800 mb-1">Cultural Preferences:</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cultural Preferences:</label>
                       <textarea
                         name="cultural_preferences"
                         value={editingClient?.cultural_preferences || ''}
                         onChange={handleInputChange}
                         rows={3}
-                        className="w-full p-2 rounded border border-gray-300 text-sm"
+                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700"
                       />
                     </div>
                   ) : (
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
                       <span className="font-medium">Cultural Preferences:</span> {client.cultural_preferences}
                     </p>
                   )}
@@ -358,8 +411,8 @@ setClient(data);
                 <div className="flex items-center">
                   <Calendar className="w-5 h-5 text-purple-600 mr-3" />
                   <div>
-                    <p className="text-sm text-gray-500">Member Since</p>
-                    <p className="text-gray-800">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Member Since</p>
+                    <p className="text-gray-800 dark:text-gray-200">
                       {new Date(client.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -372,11 +425,16 @@ setClient(data);
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h2>
-            <p className="text-gray-600">No recent activity to display.</p>
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Recent Activity</h2>
+            <p className="text-gray-600 dark:text-gray-400">No recent activity to display.</p>
           </div>
         </div>
+      </div>
+
+      {/* Client Documents Section */}
+      <div className="mt-6">
+        <ClientDocuments clientId={id || ''} clientName={client.name} />
       </div>
     </div>
   );

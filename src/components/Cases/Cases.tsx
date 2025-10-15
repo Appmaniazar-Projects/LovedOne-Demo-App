@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Search } from 'lucide-react';
-import { mockDeceasedProfiles } from '../../data/mockData';
+import { mockDeceasedProfiles, mockClients } from '../../data/mockData';
 import CaseCard from './CaseCard';
-import { DeceasedProfile } from '../../types';
+import { DeceasedProfile, Client } from '../../types';
+import { supabase, isSupabaseConfigured } from '../../supabaseClient';
+import { toast } from 'react-hot-toast';
 
 const Cases: React.FC = () => {
+  const LOCAL_STORAGE_KEY = 'lovedone_cases';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [cases, setCases] = useState<DeceasedProfile[]>(mockDeceasedProfiles);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [clients, setClients] = useState<Client[]>(mockClients);
   const [form, setForm] = useState({
     name: '',
     dateOfBirth: '',
@@ -21,6 +25,108 @@ const Cases: React.FC = () => {
     culturalRequirements: '',
     picture: ''
   });
+
+  // Load cases from Supabase if configured
+  useEffect(() => {
+    // Load clients (Supabase -> fallback to mocks already in state)
+    const loadClients = async () => {
+      if (!isSupabaseConfigured()) return;
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, email, phone, address, relationship, cultural_preferences, created_at, updated_at')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.warn('Failed to load clients from Supabase, using mocks');
+        return;
+      }
+      const mapped: Client[] = (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email || '',
+        phone: row.phone || '',
+        address: row.address || '',
+        relationship: row.relationship || '',
+        culturalPreferences: row.cultural_preferences || undefined,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at)
+      }));
+      setClients(mapped);
+    };
+
+    loadClients();
+
+    const readFromLocalStorage = (): DeceasedProfile[] | null => {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as any[];
+        return parsed.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          dateOfBirth: new Date(row.dateOfBirth),
+          dateOfDeath: new Date(row.dateOfDeath),
+          picture: row.picture || undefined,
+          serviceType: row.serviceType,
+          status: row.status,
+          assignedDirector: row.assignedDirector,
+          clientId: row.clientId,
+          culturalRequirements: row.culturalRequirements || undefined,
+          createdAt: new Date(row.createdAt),
+          updatedAt: new Date(row.updatedAt)
+        }));
+      } catch {
+        return null;
+      }
+    };
+
+    const writeToLocalStorage = (items: DeceasedProfile[]) => {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+      } catch {
+        // ignore
+      }
+    };
+
+    const loadCases = async () => {
+      if (!isSupabaseConfigured()) {
+        const cached = readFromLocalStorage();
+        if (cached && cached.length > 0) setCases(cached);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('deceased_profiles')
+        .select('id, name, date_of_birth, date_of_death, picture, service_type, status, assigned_director, client_id, cultural_requirements, created_at, updated_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to load cases from Supabase:', error);
+        const cached = readFromLocalStorage();
+        if (cached && cached.length > 0) setCases(cached);
+        return;
+      }
+
+      const mapped: DeceasedProfile[] = (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        dateOfBirth: new Date(row.date_of_birth),
+        dateOfDeath: new Date(row.date_of_death),
+        picture: row.picture || undefined,
+        serviceType: row.service_type,
+        status: row.status,
+        assignedDirector: row.assigned_director,
+        clientId: row.client_id,
+        culturalRequirements: row.cultural_requirements || undefined,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at)
+      }));
+
+      setCases(mapped);
+      writeToLocalStorage(mapped);
+    };
+
+    loadCases();
+  }, []);
 
   const filteredCases = cases.filter(caseData => {
     const matchesSearch = caseData.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -45,14 +151,14 @@ const Cases: React.FC = () => {
     });
   };
 
-  const handleAddCase = (e: React.FormEvent) => {
+  const handleAddCase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.dateOfBirth || !form.dateOfDeath || !form.assignedDirector || !form.clientId) {
-      // Basic required validation
+      toast.error('Please fill all required fields');
       return;
     }
 
-    const newCase: DeceasedProfile = {
+    const fallbackNew: DeceasedProfile = {
       id: (cases.length + 1).toString(),
       name: form.name,
       dateOfBirth: new Date(form.dateOfBirth),
@@ -67,7 +173,65 @@ const Cases: React.FC = () => {
       updatedAt: new Date()
     };
 
-    setCases(prev => [newCase, ...prev]);
+    if (!isSupabaseConfigured()) {
+      setCases(prev => {
+        const next = [fallbackNew, ...prev];
+        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+      setIsModalOpen(false);
+      resetForm();
+      toast.success('Case saved locally');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('deceased_profiles')
+      .insert({
+        name: form.name,
+        date_of_birth: form.dateOfBirth,
+        date_of_death: form.dateOfDeath,
+        picture: form.picture || null,
+        service_type: form.serviceType,
+        status: form.status,
+        assigned_director: form.assignedDirector,
+        client_id: form.clientId,
+        cultural_requirements: form.culturalRequirements || null
+      })
+      .select('id, name, date_of_birth, date_of_death, picture, service_type, status, assigned_director, client_id, cultural_requirements, created_at, updated_at')
+      .single();
+
+    if (error || !data) {
+      console.error('Failed to save case to Supabase, using local fallback:', error);
+      setCases(prev => {
+        const next = [fallbackNew, ...prev];
+        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+      toast.success('Case saved locally (offline mode)');
+    } else {
+      const saved: DeceasedProfile = {
+        id: data.id,
+        name: data.name,
+        dateOfBirth: new Date(data.date_of_birth),
+        dateOfDeath: new Date(data.date_of_death),
+        picture: data.picture || undefined,
+        serviceType: data.service_type,
+        status: data.status,
+        assignedDirector: data.assigned_director,
+        clientId: data.client_id,
+        culturalRequirements: data.cultural_requirements || undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
+      setCases(prev => {
+        const next = [saved, ...prev];
+        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+      toast.success('Case saved');
+    }
+
     setIsModalOpen(false);
     resetForm();
   };
@@ -221,8 +385,18 @@ const Cases: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Client ID</label>
-                  <input value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. 1" required />
+                  <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Client</label>
+                  <select
+                    value={form.clientId}
+                    onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white"
+                    required
+                  >
+                    <option value="" disabled>Select client...</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Picture URL (optional)</label>

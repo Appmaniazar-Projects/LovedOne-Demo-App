@@ -25,6 +25,54 @@ const Payments: React.FC = () => {
     setIsViewModalOpen(true);
   };
 
+  const handleDownloadPayment = (payment: Payment) => {
+    // Create a receipt/invoice content
+    const receiptContent = `
+PAYMENT RECEIPT
+================================================================================
+
+Receipt ID: ${payment.id}
+Transaction ID: ${payment.transactionId || 'N/A'}
+Date: ${new Date(payment.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}
+
+================================================================================
+PAYMENT DETAILS
+================================================================================
+
+Description: ${payment.description}
+Amount: ${formatCurrency(payment.amount)}
+Payment Method: ${payment.method.toUpperCase()}
+Status: ${payment.status.toUpperCase()}
+Case ID: ${payment.caseId}
+
+================================================================================
+
+Thank you for your payment.
+
+For any queries, please contact us with your receipt ID.
+
+================================================================================
+Generated on: ${new Date().toLocaleString('en-US')}
+    `.trim();
+
+    // Create a blob and download
+    const blob = new Blob([receiptContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payment-receipt-${payment.id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   const fetchPayments = async () => {
     const { data, error } = await supabase
       .from('payments')
@@ -255,26 +303,26 @@ const Payments: React.FC = () => {
               {filteredPayments.map((payment, index) => (
                 <tr 
                   key={payment.id} 
-                  className={`${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-50'} transition-all duration-300 hover:scale-[1.01] animate-fadeInUp`}
+                  className={`${theme === 'dark' ? 'hover:bg-gray-800/80' : 'hover:bg-blue-50'} transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:-translate-y-1 cursor-pointer animate-fadeInUp group`}
                   style={{ animationDelay: `${400 + index * 30}ms` }}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'} transition-all duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400`}>
                         {payment.description}
                       </div>
-                      <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} transition-all duration-300 group-hover:text-blue-500 dark:group-hover:text-blue-300`}>
                         {payment.transactionId}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                    <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'} transition-all duration-300 group-hover:scale-110 group-hover:text-green-600 dark:group-hover:text-green-400 group-hover:font-bold`}>
                       {formatCurrency(payment.amount)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md`}>
                       {payment.method === 'card' ? 'CARD' : 
                        payment.method === 'eft' ? 'BANK TRANSFER' : 
                        payment.method === 'easypay' ? 'EASYPAY' : 
@@ -283,11 +331,11 @@ const Payments: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${statusColors[payment.status]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${statusColors[payment.status]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md group-hover:ring-2 group-hover:ring-offset-1 ${payment.status === 'completed' ? 'group-hover:ring-green-400' : payment.status === 'pending' ? 'group-hover:ring-yellow-400' : 'group-hover:ring-red-400'}`}>
                       {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                     </span>
                   </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} transition-all duration-300 group-hover:text-gray-900 dark:group-hover:text-gray-200 group-hover:font-medium`}>
                     {new Date(payment.createdAt).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'short',
@@ -297,16 +345,13 @@ const Payments: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button 
                       onClick={() => handleViewPayment(payment)} 
-                      className={`${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} mr-4 transition-all duration-300 font-medium hover:scale-110`}
+                      className={`${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} mr-4 transition-all duration-300 font-medium hover:scale-125 group-hover:scale-110 hover:underline hover:decoration-2 hover:underline-offset-4`}
                     >
                       View
                     </button>
                     <button 
-                      className={`${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-all duration-300 font-medium hover:scale-110`}
-                      onClick={() => {
-                        // TODO: Implement download functionality
-                        console.log('Download payment:', payment.id);
-                      }}
+                      className={`${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-all duration-300 font-medium hover:scale-125 group-hover:scale-110 hover:underline hover:decoration-2 hover:underline-offset-4`}
+                      onClick={() => handleDownloadPayment(payment)}
                     >
                       Download
                     </button>

@@ -149,12 +149,12 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
               ) : user && (
                 <>
                   <img
-                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}&background=0D8ABC&color=fff`}
-                    alt={user.full_name}
+                    src={user.avatar_url || `https://ui-avatars.com/api/?name=Kgopotso&background=0D8ABC&color=fff`}
+                    alt="Kgopotso"
                     className="w-8 h-8 rounded-full transition-transform duration-300 hover:scale-110 hover:rotate-6"
                   />
                   <div className="text-left">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">Kgopotso</p>
                     <p className="text-xs text-slate-500 dark:text-gray-400 capitalize">{user.role}</p>
                   </div>
                 </>
@@ -165,7 +165,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
               <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown`}>
                 {user && (
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-gray-700">
-                    <p className="font-medium text-slate-900 dark:text-white truncate">{user.role === 'super_admin' ? 'Super Admin' : user.full_name}</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate">Kgopotso</p>
                     <p className="text-sm text-slate-500 dark:text-gray-400 truncate" title={user.email}>{user.email}</p>
                   </div>
                 )}

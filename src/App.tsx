@@ -13,7 +13,6 @@ import Clients from './components/Clients/Clients';
 import Cases from './components/Cases/Cases';
 import Payments from './components/Payments/Payments';
 import TaskBoard from './components/Tasks/TaskBoard';
-import Documents from './components/Documents/Documents';
 import Services from './components/Services/Services';
 import Reports from './components/Reports/Reports';
 import Notifications from './components/Notifications/Notifications';
@@ -171,17 +170,17 @@ function App() {
       <Route path="/login" element={<AuthRedirect />} />
       <Route path="/" element={<RoleBasedRedirect />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
-      <Route path="/clients/:id" element={<ClientDetails />} />
       <Route path="/parlors/:id" element={<ParlorDetails />} />
       <Route path="/:parlorSlug" element={<ParlorLayout />}>
         {/* Redirect from /:parlorSlug to /:parlorSlug/dashboard */}
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />
+        <Route path="clients/:id" element={<ClientDetails />} />
         <Route path="cases" element={<Cases />} />
         <Route path="payments" element={<Payments />} />
         <Route path="tasks" element={<TaskBoard />} />
-        <Route path="documents" element={<Documents />} />
+        {/* Documents page removed; documents managed under Clients */}
         <Route path="services" element={<Services />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />

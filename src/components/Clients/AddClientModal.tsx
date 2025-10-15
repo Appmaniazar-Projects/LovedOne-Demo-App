@@ -1,7 +1,9 @@
 // src/components/Clients/AddClientModal.tsx
 import React, { useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { Client } from './Clients'; // Assuming Client interface is exported from Clients.tsx
+import { toast } from 'react-hot-toast';
+import { addMockClient } from '../../data/mockClients';
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -25,6 +27,80 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
     setIsSubmitting(true);
 
     try {
+      console.log('Adding new client...');
+      console.log('Form data:', { name, relationship, email, phone, address, culturalPreferences });
+      
+      // Check if Supabase is configured
+      if (!isSupabaseConfigured()) {
+        console.log('Supabase not configured, creating mock client with persistence');
+        // Create mock client if Supabase is not configured
+        const newClient = addMockClient({
+          name,
+          relationship,
+          email,
+          phone,
+          address,
+          cultural_preferences: culturalPreferences,
+          profile_picture_url: null,
+          user_id: 'mock-user',
+        });
+        
+        console.log('Mock client created and saved:', newClient);
+        // Also ensure cached list updated
+        try {
+          const raw = localStorage.getItem('lovedone_mock_clients');
+          const arr = raw ? JSON.parse(raw) : [];
+          localStorage.setItem('lovedone_mock_clients', JSON.stringify([...arr, newClient]));
+        } catch {}
+        toast.success('Client added successfully!');
+        onClientAdded(newClient);
+        
+        // Reset form
+        setName('');
+        setRelationship('');
+        setEmail('');
+        setPhone('');
+        setAddress('');
+        setCulturalPreferences('');
+        onClose();
+        return;
+      }
+
+      console.log('Supabase is configured, proceeding with real database');
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current user:', user);
+      
+      if (!user) {
+        console.log('No user logged in, creating mock client with persistence');
+        // Create mock client if no user is logged in
+        const newClient = addMockClient({
+          name,
+          relationship,
+          email,
+          phone,
+          address,
+          cultural_preferences: culturalPreferences,
+          profile_picture_url: null,
+          user_id: 'mock-user',
+        });
+        
+        console.log('Mock client created and saved:', newClient);
+        toast.success('Client added successfully!');
+        onClientAdded(newClient);
+        
+        // Reset form
+        setName('');
+        setRelationship('');
+        setEmail('');
+        setPhone('');
+        setAddress('');
+        setCulturalPreferences('');
+        onClose();
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('clients')
         .insert({
@@ -34,20 +110,52 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
           phone,
           address,
           cultural_preferences: culturalPreferences,
+          user_id: user.id, // Assign client to current user
         })
         .select()
         .single();
 
       if (error) {
+        console.error('Error adding client:', error);
         throw error;
       }
 
       if (data) {
-        onClientAdded(data);
+        console.log('Client added successfully:', data);
+        toast.success('Client added successfully!');
+        // Ensure local cache also has this client so navigation back still shows it
+        try {
+          const raw = localStorage.getItem('lovedone_mock_clients');
+          const arr = raw ? JSON.parse(raw) : [];
+          const cacheClient = {
+            id: data.id,
+            name: data.name,
+            relationship: data.relationship || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            cultural_preferences: data.cultural_preferences || '',
+            profile_picture_url: data.profile_picture_url || null,
+            user_id: data.user_id || 'mock-user',
+            created_at: (data.created_at || new Date().toISOString()),
+            document_count: 0
+          };
+          localStorage.setItem('lovedone_mock_clients', JSON.stringify([...arr, cacheClient]));
+        } catch {}
+        onClientAdded(data as any);
+        // Reset form
+        setName('');
+        setRelationship('');
+        setEmail('');
+        setPhone('');
+        setAddress('');
+        setCulturalPreferences('');
         onClose(); // Close modal on success
       }
     } catch (err: any) {
+      console.error('Error in handleSubmit:', err);
       setError(err.message);
+      toast.error(err.message || 'Failed to add client');
     } finally {
       setIsSubmitting(false);
     }
