@@ -1,546 +1,1556 @@
 import React, { useState } from 'react';
-import { Plus, Search, Calendar, MapPin, Users, Clock, Filter } from 'lucide-react';
-import { mockServices } from '../../data/mockData';
-import { Service } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
+import { 
+  Heart, 
+  Users, 
+  Shield, 
+  CheckCircle2, 
+  Phone, 
+  MapPin, 
+  Globe,
+  Mail,
+  Clock,
+  Info,
+  DollarSign,
+  Award,
+  Check,
+  ArrowRight
+} from 'lucide-react';
 
-const Services: React.FC = () => {
+interface PlanCardProps {
+  title: string;
+  premium: string;
+  members?: string;
+  benefits: string[];
+  accent: 'blue' | 'green' | 'purple' | 'amber';
+  icon: React.ReactNode;
+  isSelected: boolean;
+  onSelect: () => void;
+  isPopular?: boolean;
+}
+
+const PlanCard: React.FC<PlanCardProps> = ({ title, premium, members, benefits, accent, icon, isSelected, onSelect, isPopular }) => {
   const { theme } = useTheme();
-  const [services, setServices] = useState<Service[]>(mockServices);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [serviceForm, setServiceForm] = useState({
-    name: '',
-    date: '',
-    time: '',
-    venue: '',
-    type: 'funeral' as Service['type'],
-    caseId: '',
-    staff: '',
-    notes: ''
-  });
-
-  const filteredServices = services.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         service.venue.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === 'all' || service.type === typeFilter;
-    
-    let matchesDate = true;
-    if (dateFilter === 'today') {
-      matchesDate = new Date(service.date).toDateString() === new Date().toDateString();
-    } else if (dateFilter === 'week') {
-      const weekFromNow = new Date();
-      weekFromNow.setDate(weekFromNow.getDate() + 7);
-      matchesDate = new Date(service.date) <= weekFromNow;
-    } else if (dateFilter === 'month') {
-      const monthFromNow = new Date();
-      monthFromNow.setMonth(monthFromNow.getMonth() + 1);
-      matchesDate = new Date(service.date) <= monthFromNow;
-    }
-    
-    return matchesSearch && matchesType && matchesDate;
-  });
-
-  const getServiceIcon = (type: string) => {
-    switch (type) {
-      case 'funeral':
-        return '⚱️';
-      case 'memorial':
-        return '🕯️';
-      case 'cremation':
-        return '🔥';
-      case 'burial':
-        return '⚰️';
-      default:
-        return '🏛️';
-    }
+  
+  const accentColors = {
+    blue: 'from-blue-500 to-cyan-400',
+    green: 'from-green-500 to-emerald-400',
+    purple: 'from-purple-500 to-pink-400',
+    amber: 'from-amber-500 to-orange-400'
   };
 
-  const getTypeColor = (type: string) => {
-    const colors = {
-      funeral: {
-        light: 'bg-purple-100 text-purple-800',
-        dark: 'bg-purple-900/30 text-purple-300'
-      },
-      memorial: {
-        light: 'bg-blue-100 text-blue-800',
-        dark: 'bg-blue-900/30 text-blue-300'
-      },
-      cremation: {
-        light: 'bg-orange-100 text-orange-800',
-        dark: 'bg-orange-900/30 text-orange-300'
-      },
-      burial: {
-        light: 'bg-green-100 text-green-800',
-        dark: 'bg-green-900/30 text-green-300'
-      },
-      default: {
-        light: 'bg-gray-100 text-gray-800',
-        dark: 'bg-gray-700/50 text-gray-200'
-      }
-    };
-
-    const color = colors[type as keyof typeof colors] || colors.default;
-    return color[theme as keyof typeof color];
+  const borderColors = {
+    blue: 'border-blue-500',
+    green: 'border-green-500',
+    purple: 'border-purple-500',
+    amber: 'border-amber-500'
   };
 
-  const getDateStatus = (date: Date) => {
-    const today = new Date();
-    const serviceDate = new Date(date);
-    const diffTime = serviceDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-      return { 
-        text: 'Past', 
-        color: theme === 'dark' ? 'text-gray-400' : 'text-gray-500' 
-      };
-    }
-    if (diffDays === 0) {
-      return { 
-        text: 'Today', 
-        color: theme === 'dark' ? 'text-red-400 font-semibold' : 'text-red-600 font-semibold' 
-      };
-    }
-    if (diffDays === 1) {
-      return { 
-        text: 'Tomorrow', 
-        color: theme === 'dark' ? 'text-orange-400 font-semibold' : 'text-orange-600 font-semibold' 
-      };
-    }
-    if (diffDays <= 7) {
-      return { 
-        text: `In ${diffDays} days`, 
-        color: theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600' 
-      };
-    }
-    return { 
-      text: `In ${diffDays} days`, 
-      color: theme === 'dark' ? 'text-green-400' : 'text-green-600' 
-    };
-  };
-
-  const handleScheduleService = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!serviceForm.name || !serviceForm.date || !serviceForm.time || !serviceForm.venue || !serviceForm.caseId) {
-      return;
-    }
-
-    const staffArray = serviceForm.staff.split(',').map(s => s.trim()).filter(s => s);
-
-    const newService: Service = {
-      id: (services.length + 1).toString(),
-      name: serviceForm.name,
-      date: new Date(serviceForm.date),
-      time: serviceForm.time,
-      venue: serviceForm.venue,
-      type: serviceForm.type,
-      caseId: serviceForm.caseId,
-      staff: staffArray.length > 0 ? staffArray : ['Unassigned'],
-      notes: serviceForm.notes || undefined,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    setServices(prev => [newService, ...prev]);
-    setIsModalOpen(false);
-    setServiceForm({
-      name: '',
-      date: '',
-      time: '',
-      venue: '',
-      type: 'funeral',
-      caseId: '',
-      staff: '',
-      notes: ''
-    });
+  const bgColors = {
+    blue: 'bg-blue-50 dark:bg-blue-900/20',
+    green: 'bg-green-50 dark:bg-green-900/20',
+    purple: 'bg-purple-50 dark:bg-purple-900/20',
+    amber: 'bg-amber-50 dark:bg-amber-900/20'
   };
 
   return (
-    <div className={`p-6 space-y-6 min-h-screen transition-colors duration-200 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Services</h1>
-          <p className={theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}>Schedule and manage funeral services</p>
+    <div className={`relative rounded-xl border-2 p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+      isSelected 
+        ? `${borderColors[accent]} ${bgColors[accent]} shadow-lg scale-105` 
+        : theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+    }`}>
+      {isPopular && (
+        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+          <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg">
+            MOST POPULAR
+          </span>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Schedule Service</span>
-        </button>
+      )}
+      
+      {isSelected && (
+        <div className="absolute -top-3 -right-3">
+          <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${accentColors[accent]} flex items-center justify-center shadow-lg`}>
+            <Check className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      )}
+
+      <div className={`h-1 w-full bg-gradient-to-r ${accentColors[accent]} rounded-t-xl mb-4`} />
+      <div className="flex items-center gap-3 mb-4">
+        {icon}
+        <h3 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{title}</h3>
+      </div>
+      
+      <div className="mb-4 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Monthly Premium</span>
+          <span className="text-2xl font-bold text-green-600 dark:text-green-400">{premium}</span>
+        </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className={`rounded-lg shadow-sm border p-6 transition-colors duration-200 ${
-        theme === 'dark' 
-          ? 'bg-gray-800 border-gray-700' 
-          : 'bg-white border-slate-200'
-      }`}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-              theme === 'dark' ? 'text-gray-400' : 'text-slate-400'
-            }`} />
-            <input
-              type="text"
-              placeholder="Search services..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
-                theme === 'dark' 
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                  : 'border border-slate-300 bg-white text-gray-900'
-              }`}
-            />
+      {members && (
+        <div className="mb-4">
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+            {members}
+          </span>
+        </div>
+      )}
+
+      <ul className="space-y-2 mb-6">
+        {benefits.map((benefit, index) => (
+          <li key={index} className="flex items-start gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <span className={theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}>{benefit}</span>
+          </li>
+        ))}
+      </ul>
+
+      <button
+        onClick={onSelect}
+        className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+          isSelected
+            ? `bg-gradient-to-r ${accentColors[accent]} text-white shadow-lg hover:shadow-xl`
+            : theme === 'dark'
+            ? 'bg-gray-700 text-white hover:bg-gray-600'
+            : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+        }`}
+      >
+        {isSelected ? (
+          <>
+            <Check className="w-5 h-5" />
+            Selected
+          </>
+        ) : (
+          <>
+            Select Plan
+            <ArrowRight className="w-5 h-5" />
+          </>
+        )}
+      </button>
+    </div>
+  );
+};
+
+interface PriceTableProps {
+  title: string;
+  rows: { members: string; cover: string; premium: string }[];
+  icon?: React.ReactNode;
+  accent?: 'blue' | 'purple' | 'green' | 'amber';
+  variant?: 'members-contribution' | 'extended-funeral' | 'default';
+}
+
+const PriceTable: React.FC<PriceTableProps> = ({ title, rows, icon, accent = 'blue', variant = 'default' }) => {
+  const { theme } = useTheme();
+  
+  const accentColors = {
+    blue: {
+      gradient: 'from-blue-500 to-cyan-500',
+      icon: 'bg-gradient-to-br from-blue-500 to-cyan-500',
+      border: 'border-blue-200 dark:border-blue-700',
+      bg: 'bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-blue-900/20'
+    },
+    purple: {
+      gradient: 'from-purple-500 to-pink-500',
+      icon: 'bg-gradient-to-br from-purple-500 to-pink-500',
+      border: 'border-purple-200 dark:border-purple-700',
+      bg: 'bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-purple-900/20'
+    },
+    green: {
+      gradient: 'from-green-500 to-emerald-500',
+      icon: 'bg-gradient-to-br from-green-500 to-emerald-500',
+      border: 'border-green-200 dark:border-green-700',
+      bg: 'bg-gradient-to-br from-white to-green-50 dark:from-gray-800 dark:to-green-900/20'
+    },
+    amber: {
+      gradient: 'from-amber-500 to-orange-500',
+      icon: 'bg-gradient-to-br from-amber-500 to-orange-500',
+      border: 'border-amber-200 dark:border-amber-700',
+      bg: 'bg-gradient-to-br from-white to-amber-50 dark:from-gray-800 dark:to-amber-900/20'
+    }
+  };
+
+  const colors = accentColors[accent];
+  
+  return (
+    <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${colors.border} ${colors.bg}`}>
+      <div className="flex items-center gap-3 mb-6">
+        {icon && (
+          <div className={`w-12 h-12 rounded-full ${colors.icon} flex items-center justify-center shadow-lg`}>
+            {icon}
+          </div>
+        )}
+        <div>
+          <h3 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{title}</h3>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Choose your coverage level</p>
+        </div>
+      </div>
+      
+      <div className="overflow-hidden rounded-xl border-2 border-slate-200 dark:border-gray-700 shadow-md">
+        <table className="w-full">
+          <thead className={`bg-gradient-to-r ${colors.gradient}`}>
+            <tr>
+              <th className="px-6 py-4 text-left text-sm font-bold text-white">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Members
+                </div>
+              </th>
+              <th className="px-6 py-4 text-center text-sm font-bold text-white">
+                <div className="flex items-center justify-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Cover
+                </div>
+              </th>
+              <th className="px-6 py-4 text-right text-sm font-bold text-white">
+                <div className="flex items-center justify-end gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Premium
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
+            {rows.map((row, index) => (
+              <tr 
+                key={index} 
+                className={`group transition-all duration-300 ${
+                  theme === 'dark' 
+                    ? 'hover:bg-gray-700/50 bg-gray-800/50' 
+                    : 'hover:bg-slate-50 bg-white'
+                }`}
+              >
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-gray-700' : 'bg-slate-100'} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                      <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="font-medium">{row.members}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${
+                    theme === 'dark' 
+                      ? 'bg-blue-900/30 text-blue-300' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    <Shield className="w-3 h-3" />
+                    {row.cover}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400">{row.premium}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">/month</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+            {accent === 'purple' && (
+        <div className={`mt-4 p-4 rounded-lg border-2 ${
+          theme === 'dark' ? 'bg-purple-900/20 border-purple-700' : 'bg-purple-50 border-purple-200'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0">
+              <Info className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-purple-900 dark:text-purple-200 mb-1">NB: Children Under 6 Years</p>
+              <p className="text-sm text-purple-800 dark:text-purple-300">
+                Children under the age of 6 will be given service (burial), tent and 40 chairs with hearse only
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {accent === 'blue' && variant === 'members-contribution' && (
+        <div className={`mt-4 p-5 rounded-xl border-2 shadow-md ${
+          theme === 'dark' ? 'bg-gradient-to-br from-blue-900/30 to-cyan-900/20 border-blue-600' : 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-300'
+        }`}>
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-300 dark:border-blue-700">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Info className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-lg text-blue-900 dark:text-blue-100">Important Terms & Conditions</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">Please read carefully</p>
+            </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Filter className={`w-5 h-5 ${
-              theme === 'dark' ? 'text-gray-400' : 'text-slate-400'
-            }`} />
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className={`flex-1 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
-                theme === 'dark'
-                  ? 'bg-gray-700 border-gray-600 text-white'
-                  : 'border border-slate-300 bg-white text-gray-900'
-              }`}
-            >
-              <option value="all">All Types</option>
-              <option value="funeral">Funeral</option>
-              <option value="memorial">Memorial</option>
-              <option value="cremation">Cremation</option>
-              <option value="burial">Burial</option>
-            </select>
-          </div>
-
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className={`rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${
-              theme === 'dark'
-                ? 'bg-gray-700 border-gray-600 text-white'
-                : 'border border-slate-300 bg-white text-gray-900'
-            }`}
-          >
-            <option value="all">All Dates</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-        }`}>
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>Total Services</p>
-          <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-            {services.length}
-          </p>
-        </div>
-        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-        }`}>
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>This Week</p>
-          <p className={`text-2xl font-bold ${
-            theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
-          }`}>
-            {services.filter(s => {
-              const weekFromNow = new Date();
-              weekFromNow.setDate(weekFromNow.getDate() + 7);
-              return new Date(s.date) <= weekFromNow && new Date(s.date) >= new Date();
-            }).length}
-          </p>
-        </div>
-        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-        }`}>
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>Today</p>
-          <p className={`text-2xl font-bold ${
-            theme === 'dark' ? 'text-red-400' : 'text-red-600'
-          }`}>
-            {services.filter(s => new Date(s.date).toDateString() === new Date().toDateString()).length}
-          </p>
-        </div>
-        <div className={`rounded-lg shadow-sm border p-4 transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-        }`}>
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>Upcoming</p>
-          <p className={`text-2xl font-bold ${
-            theme === 'dark' ? 'text-green-400' : 'text-green-600'
-          }`}>
-            {services.filter(s => new Date(s.date) > new Date()).length}
-          </p>
-        </div>
-      </div>
-
-      {/* Services Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredServices.map((service) => {
-          const dateStatus = getDateStatus(service.date);
-          return (
-            <div 
-              key={service.id} 
-              className={`rounded-lg shadow-sm border p-6 hover:shadow-md transition-all duration-200 ${
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' 
-                  : 'bg-white border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="text-2xl">{getServiceIcon(service.type)}</div>
-                  <div>
-                    <h3 className={`font-semibold ${
-                      theme === 'dark' ? 'text-white' : 'text-slate-900'
-                    }`}>
-                      {service.name}
-                    </h3>
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(service.type)} mt-1`}>
-                      {service.type.charAt(0).toUpperCase() + service.type.slice(1)}
-                    </span>
-                  </div>
+          <div className="space-y-3">
+            {/* Age Requirement */}
+            <div className="group p-3 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-all duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
-                <span className={`text-sm ${dateStatus.color}`}>
-                  {dateStatus.text}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className={`flex items-center space-x-2 text-sm ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-slate-600'
-                }`}>
-                  <Calendar className="w-4 h-4" />
-                  <span>{new Date(service.date).toLocaleDateString()}</span>
-                </div>
-                <div className={`flex items-center space-x-2 text-sm ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-slate-600'
-                }`}>
-                  <Clock className="w-4 h-4" />
-                  <span>{service.time}</span>
-                </div>
-                <div className={`flex items-center space-x-2 text-sm ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-slate-600'
-                }`}>
-                  <MapPin className="w-4 h-4" />
-                  <span>{service.venue}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
-                  <Users className="w-4 h-4" />
-                  <span>{service.staff.length} staff assigned</span>
-                </div>
-              </div>
-
-              {service.notes && (
-                <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-                  <p className="text-sm text-slate-700">
-                    <span className="font-medium">Notes:</span> {service.notes}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex -space-x-2">
-                    {service.staff.slice(0, 3).map((staff, index) => (
-                      <div
-                        key={index}
-                        className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center border-2 border-white text-xs font-medium text-blue-600"
-                      >
-                        {staff.charAt(0)}
-                      </div>
-                    ))}
-                    {service.staff.length > 3 && (
-                      <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white text-xs font-medium text-slate-600">
-                        +{service.staff.length - 3}
-                      </div>
-                    )}
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setSelectedService(service);
-                      setIsDetailsModalOpen(true);
-                    }}
-                    className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                  >
-                    View Details
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {filteredServices.length === 0 && (
-        <div className="text-center py-12">
-          <Calendar className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-          <div className="text-slate-400 text-lg">No services found</div>
-          <p className="text-slate-500 mt-2">Try adjusting your search terms or schedule a new service</p>
-        </div>
-      )}
-
-      {/* Service Details Modal */}
-      {isDetailsModalOpen && selectedService && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-lg shadow-2xl w-full max-w-2xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="text-3xl">{getServiceIcon(selectedService.type)}</div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">{selectedService.name}</h2>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getTypeColor(selectedService.type)} mt-1`}>
-                    {selectedService.type.charAt(0).toUpperCase() + selectedService.type.slice(1)}
-                  </span>
+                  <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">Age Requirement</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">All members must be under 65 years old</p>
                 </div>
               </div>
-              <button onClick={() => setIsDetailsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
             </div>
-
-            <div className="space-y-6">
-              {/* Date & Time Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
-                    <Calendar className="w-5 h-5" />
-                    <span className="font-medium">Date</span>
-                  </div>
-                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-900">
-                    {new Date(selectedService.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                  <p className={`text-sm mt-1 ${getDateStatus(selectedService.date).color}`}>
-                    {getDateStatus(selectedService.date).text}
-                  </p>
+            
+            {/* Family Relationship */}
+            <div className="group p-3 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-all duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
-                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
-                    <Clock className="w-5 h-5" />
-                    <span className="font-medium">Time</span>
-                  </div>
-                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-900">{selectedService.time}</p>
+                <div>
+                  <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">Family Relationship</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">They must be family related</p>
                 </div>
               </div>
-
-              {/* Venue Section */}
-              <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
-                  <MapPin className="w-5 h-5" />
-                  <span className="font-medium">Venue</span>
+            </div>
+            
+            {/* Replacement Policy */}
+            <div className="group p-3 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-all duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-lg text-slate-900 dark:text-slate-900">{selectedService.venue}</p>
+                <div>
+                  <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">Replacement Policy</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">No replacement after death of a member</p>
+                </div>
               </div>
-
-              {/* Staff Section */}
-              <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-3">
-                  <Users className="w-5 h-5" />
-                  <span className="font-medium">Assigned Staff ({selectedService.staff.length})</span>
+            </div>
+            
+            {/* Children Payout Structure */}
+            <div className="group p-3 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-all duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedService.staff.map((staff, index) => (
-                    <div key={index} className="flex items-center space-x-2 bg-blue-100 dark:bg-blue-900/30 px-3 py-2 rounded-full">
-                      <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-medium text-white">
-                        {staff.charAt(0)}
-                      </div>
-                      <span className="text-sm font-medium text-blue-900 dark:text-blue-200">{staff}</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Children Payout Structure</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mb-3">Children under 14 years old have a percentage payout:</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className={`p-2 rounded-lg text-center ${
+                      theme === 'dark' ? 'bg-blue-800/40' : 'bg-white'
+                    } border border-blue-300 dark:border-blue-600`}>
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">1-5 years</p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">25%</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes Section */}
-              {selectedService.notes && (
-                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 mb-2">
-                    <span className="font-medium">Notes</span>
+                    
+                    <div className={`p-2 rounded-lg text-center ${
+                      theme === 'dark' ? 'bg-blue-800/40' : 'bg-white'
+                    } border border-blue-300 dark:border-blue-600`}>
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">6-13 years</p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">50%</p>
+                    </div>
+                    
+                    <div className={`p-2 rounded-lg text-center ${
+                      theme === 'dark' ? 'bg-blue-800/40' : 'bg-white'
+                    } border border-blue-300 dark:border-blue-600`}>
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">14-65 years</p>
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">100%</p>
+                    </div>
                   </div>
-                  <p className="text-slate-900 dark:text-slate-900">{selectedService.notes}</p>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Case ID */}
-              <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+      {accent === 'blue' && variant === 'extended-funeral' && (
+        <div className={`mt-4 p-5 rounded-xl border-2 shadow-md ${
+          theme === 'dark' ? 'bg-gradient-to-br from-blue-900/30 to-cyan-900/20 border-blue-600' : 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-300'
+        }`}>
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-300 dark:border-blue-700">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Clock className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-lg text-blue-900 dark:text-blue-100">99 Months Waiting Period</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">Important coverage information</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            {/* Age Group */}
+            <div className="group p-3 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-all duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">Age Group Coverage</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">Available for members aged 65-84 years</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Catering */}
+            <div className="group p-3 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-all duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">Catering / Izandla</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">R60 - Caters for the whole family</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={`mt-4 p-3 rounded-lg ${
+        theme === 'dark' ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'
+      }`}>
+        <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
+          <Info className="w-4 h-4 flex-shrink-0" />
+          <span>All premiums are monthly payments. Terms and conditions apply.</span>
+        </p>
+      </div>
+      
+
+    </div>
+  );
+};
+
+const Services: React.FC = () => {
+  const { theme } = useTheme();
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  const handlePlanSelect = (planName: string) => {
+    setSelectedPlan(planName);
+    setShowConfirmation(true);
+  };
+
+  return (
+    <div className={`min-h-screen p-6 space-y-10 ${theme === 'dark' ? 'bg-gray-950' : 'bg-slate-50'}`}>
+      {/* Decorative Background */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-gradient-to-tr from-blue-400 to-purple-400" />
+        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-gradient-to-tr from-green-400 to-cyan-400" />
+      </div>
+
+      {/* Header */}
+      <div className="relative">
+        <div className={`rounded-2xl border overflow-hidden shadow-xl ${
+          theme === 'dark' ? 'border-gray-800 bg-gradient-to-br from-gray-900 to-gray-800' : 'border-slate-200 bg-gradient-to-br from-white to-slate-50'
+        }`}>
+          <div className="px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="text-4xl">🕊️</div>
+                <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-green-600">
+                  UBUNYE FUNERALS
+                </h1>
+              </div>
+              <p className={`text-lg flex items-center gap-2 ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'}`}>
+                <Heart className="w-5 h-5 text-rose-500" />
+                Caring and Always There For You
+              </p>
+              <div className="mt-4 flex items-center gap-2 text-sm">
+                <Phone className="w-4 h-4 text-blue-500" />
+                <span>Tel: 031 504 4185</span>
+                <span className="mx-2">•</span>
+                <span>Fax: 086 684 9777 / 086 516 0914</span>
+              </div>
+            </div>
+            <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'}`}>
+              <img src="/api/placeholder/150/150" alt="Ubunye Funerals Logo" className="w-32 h-32 rounded-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Funeral Plans */}
+      <div>
+        <h2 className={`text-3xl font-bold mb-3 text-center ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          Our Funeral Plans
+        </h2>
+        <p className={`text-center mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+          Select the plan that best suits your family's needs
+        </p>
+        
+        {selectedPlan && (
+          <div className={`mb-6 p-4 rounded-lg border-2 border-green-500 ${theme === 'dark' ? 'bg-green-900/20' : 'bg-green-50'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-green-700 dark:text-green-300">Plan Selected</p>
+                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'}`}>{selectedPlan}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedPlan(null)}
+                className="text-sm text-red-600 dark:text-red-400 hover:underline"
+              >
+                Change Plan
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <PlanCard
+            title="FAMILY BURIAL SOCIETY (FBS)"
+            premium="R120.00"
+            accent="purple"
+            icon={<Users className="w-6 h-6 text-purple-500" />}
+            isSelected={selectedPlan === "FAMILY BURIAL SOCIETY (FBS)"}
+            onSelect={() => handlePlanSelect("FAMILY BURIAL SOCIETY (FBS)")}
+            benefits={[
+              'Coffin, Hearse & Family car',
+              'Mortuary storage',
+              'Free delivery/collection within 50km of our offices',
+              'Tent, Table & Chairs',
+              'Funeral programmes',
+              'Vegetables'
+            ]}
+          />
+
+          <PlanCard
+            title="KOPANO (KPND)"
+            premium="R170.00"
+            accent="blue"
+            icon={<Shield className="w-6 h-6 text-blue-500" />}
+            isSelected={selectedPlan === "KOPANO (KPND)"}
+            onSelect={() => handlePlanSelect("KOPANO (KPND)")}
+            isPopular={true}
+            benefits={[
+              'Coffin/hearse & Family car',
+              'Mortuary storage',
+              'Free delivery/collection within 50km',
+              'Tent, Table, Chairs & Gas stove (empty gas cylinder)',
+              'Funeral programmes',
+              'Vegetables',
+              'Grocery package (5L fish oil, 500g tea, 1kg powder milk, 12.5kg maize, 10kg sugar, 10kg rice & 3x castor pots & Flour)'
+            ]}
+          />
+
+          <PlanCard
+            title="URMBISA"
+            premium="R270.00"
+            accent="green"
+            icon={<Award className="w-6 h-6 text-green-500" />}
+            isSelected={selectedPlan === "URMBISA"}
+            onSelect={() => handlePlanSelect("URMBISA")}
+            benefits={[
+              'Casket/Hearse &Family car',
+              'Coffin Spread',
+              'Mortuary storage',
+              'Free delivery/collection within 50km of our offices',
+              'Tent, Table, Chairs & Gas stove (empty gas cylinder)',
+              'Funeral programmes',
+              'Vegetables'
+            ]}
+          />
+        </div>
+
+        {selectedPlan && (
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={() => {
+                alert(`Thank you for selecting ${selectedPlan}! Our team will contact you shortly to complete your registration.`);
+              }}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3"
+            >
+              <Phone className="w-6 h-6" />
+              Proceed with {selectedPlan}
+              <ArrowRight className="w-6 h-6" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Inkomo Products */}
+      <div>
+        <h2 className={`text-3xl font-bold mb-3 text-center ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          Inkomo Products
+        </h2>
+        <p className={`text-center mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+          Flexible coverage options for individuals and families
+        </p>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Non Members */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  INKOMO PRODUCT
+                </h3>
+                <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">Non Members</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="group p-4 rounded-lg border-2 border-transparent hover:border-rose-300 dark:hover:border-rose-700 bg-gradient-to-r from-slate-50 to-rose-50 dark:from-gray-700/50 dark:to-rose-900/20 transition-all duration-300 hover:shadow-md">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                      <Users className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <span className="text-sm font-medium">Single member under 65 years</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">from</span>
+                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">R105</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-4 rounded-lg border-2 border-transparent hover:border-rose-300 dark:hover:border-rose-700 bg-gradient-to-r from-slate-50 to-rose-50 dark:from-gray-700/50 dark:to-rose-900/20 transition-all duration-300 hover:shadow-md">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                      <Heart className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <span className="text-sm font-medium">Immediate Family (Member & Spouse)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">from</span>
+                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">R115</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-4 rounded-lg border-2 border-transparent hover:border-rose-300 dark:hover:border-rose-700 bg-gradient-to-r from-slate-50 to-rose-50 dark:from-gray-700/50 dark:to-rose-900/20 transition-all duration-300 hover:shadow-md">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <span className="text-sm font-medium">Single Member between 65 - 74 years</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">from</span>
+                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">R125</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span>Ideal for individuals seeking basic coverage without membership requirements</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Extended */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  INKOMO PRODUCT
+                </h3>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Premium Display */}
+              <div className="p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-amber-300 dark:border-amber-700">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600 dark:text-slate-300">Case ID</span>
-                  <span className="font-mono font-semibold text-slate-900 dark:text-slate-900">#{selectedService.caseId}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="font-bold text-lg">Monthly Premium</span>
+                  </div>
+                  <span className="text-3xl font-bold text-green-600 dark:text-green-400">R75</span>
+                </div>
+              </div>
+
+              {/* Coverage Details */}
+              <div className={`p-4 rounded-lg border-2 ${
+                theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  Coverage Includes
+                </h4>
+                
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm font-medium">Immediate family (Member & Spouse)</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm font-medium">Children over 14-21 years of age</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Children over 21 years covered up to 25 years of age</span>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Provided they are still at Tertiary and proof must be provided at claim stage
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-6 mt-6 border-t border-white/20">
-              <button onClick={() => setIsDetailsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700">Close</button>
+            <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span>Extended coverage for families with tertiary students up to age 25</span>
+              </p>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Schedule Service Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-lg shadow-2xl w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">Schedule Service</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
+          {/* Extended - Duplicate */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  INKOMO PRODUCT
+                </h3>
+                <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Extended Coverage</p>
+              </div>
             </div>
-            <form onSubmit={handleScheduleService} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Service Name</label>
-                  <input value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. Memorial Service" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Service Type</label>
-                  <select value={serviceForm.type} onChange={(e) => setServiceForm({ ...serviceForm, type: e.target.value as Service['type'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
-                    <option value="funeral">Funeral</option>
-                    <option value="memorial">Memorial</option>
-                    <option value="cremation">Cremation</option>
-                    <option value="burial">Burial</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Case ID</label>
-                  <input value={serviceForm.caseId} onChange={(e) => setServiceForm({ ...serviceForm, caseId: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. 1" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Date</label>
-                  <input type="date" value={serviceForm.date} onChange={(e) => setServiceForm({ ...serviceForm, date: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-400 dark:hover:border-gray-500 transition-all cursor-pointer" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Time</label>
-                  <input type="time" value={serviceForm.time} onChange={(e) => setServiceForm({ ...serviceForm, time: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-400 dark:hover:border-gray-500 transition-all cursor-pointer" required />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Venue</label>
-                  <input value={serviceForm.venue} onChange={(e) => setServiceForm({ ...serviceForm, venue: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. St. Mary's Church, Cape Town" required />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Staff (comma-separated)</label>
-                  <input value={serviceForm.staff} onChange={(e) => setServiceForm({ ...serviceForm, staff: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. John Doe, Jane Smith" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Notes (optional)</label>
-                  <textarea value={serviceForm.notes} onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" rows={3} placeholder="Additional notes or special requirements..." />
+            
+            <div className="space-y-3">
+              {/* Premium Display */}
+              <div className="p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-amber-300 dark:border-amber-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="font-bold text-lg">Monthly Premium</span>
+                  </div>
+                  <span className="text-3xl font-bold text-green-600 dark:text-green-400">R70</span>
                 </div>
               </div>
-              <div className="flex items-center justify-end space-x-2 pt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700">Cancel</button>
-                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Schedule Service</button>
+
+              {/* Coverage Details */}
+              <div className={`p-4 rounded-lg border-2 ${
+                theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  Coverage Options
+                </h4>
+                
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm font-medium">Single member under 65</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium">Single members between 66yrs - 74</span>
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-semibold">R100.00</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </form>
+
+              {/* Voucher Option */}
+              <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-green-900 dark:text-green-200 mb-1">Special Voucher Option</p>
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      R7000 voucher will be paid if no livestock is required
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conditions */}
+              <div className={`p-4 rounded-lg border-2 ${
+                theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                  <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Conditions
+                </h4>
+                
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">No age restriction limits</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">No medical test/examination</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">FBS and KPN caters for 11 family members</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">Urmbisa caters for 10 family members</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <Clock className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">6 Month waiting period</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <DollarSign className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">R150.00 joining fee</span>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                    <Info className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs">Under Plus Plan Products 5% admin will be deducted at claim stage</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Conditions */}
+      <div>
+        <h2 className={`text-3xl font-bold mb-3 text-center ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          Terms & Conditions
+        </h2>
+        <p className={`text-center mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+          Important information about our funeral plans
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Benefits Card */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-green-900/20 border-green-700' : 'bg-gradient-to-br from-white to-green-50 border-green-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                <CheckCircle2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">Benefits</h3>
+                <p className="text-xs text-green-700 dark:text-green-300">What you get with our plans</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="group p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">No age restriction limits</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Coverage available for all ages</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">No medical test examination</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Simple enrollment process</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">FBS and KPN: 11 family members</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Comprehensive family coverage</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">URMBISA: 10 family members</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Extended family protection</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Requirements Card */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-amber-900/20 border-amber-700' : 'bg-gradient-to-br from-white to-amber-50 border-amber-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                <Info className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400">Requirements</h3>
+                <p className="text-xs text-amber-700 dark:text-amber-300">What you need to know</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="group p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">6 months waiting period</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Standard waiting time before claims</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">R150.00 joining fee</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">One-time registration cost</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 transition-all duration-300 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Plus Plan: 5% admin fee</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Deducted at claim stage for Plus Products</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span>All terms and conditions apply as per the policy agreement</span>
+              </p>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+
+      {/* Family Funeral Cover */}
+      <PriceTable
+        title="FAMILY FUNERAL COVER"
+        icon={<Heart className="w-6 h-6 text-white" />}
+        accent="purple"
+        rows={[
+          { members: '14-64', cover: 'R15 000', premium: 'R150' },
+          { members: '14-64', cover: 'R20 000', premium: 'R200' },
+          { members: '14-64', cover: 'R30 000', premium: 'R270' }
+        ]}
+      />
+
+      {/* Members Contribution */}
+      <PriceTable
+        title="MEMBERS CONTRIBUTION - THE PLUS PRODUCT"
+        icon={<Users className="w-6 h-6 text-white" />}
+        accent="blue"
+        variant="members-contribution"
+        rows={[
+          { members: '1 + 5', cover: 'R10 000', premium: 'R220' },
+          { members: '1 + 5', cover: 'R15 000', premium: 'R260' },
+          { members: '1 + 5', cover: 'R20 000', premium: 'R290' },
+          { members: '1 + 5', cover: 'R25 000', premium: 'R360' },
+          { members: '1 + 5', cover: 'R30 000', premium: 'R450' },
+          { members: '1 + 9', cover: 'R10 000', premium: 'R300' },
+          { members: '1 + 9', cover: 'R15 000', premium: 'R360' },
+          { members: '1 + 9', cover: 'R20 000', premium: 'R480' },
+          { members: '1 + 9', cover: 'R25 000', premium: 'R530' },
+          { members: '1 + 9', cover: 'R30 000', premium: 'R650' },
+        ]}
+      />
+
+      {/* Single/Extended Funeral Cover */}
+      <PriceTable
+        title="SINGLE / EXTENDED FUNERAL COVER"
+        icon={<Users className="w-6 h-6 text-white" />}
+        accent="blue"
+        variant="extended-funeral"
+        rows={[
+          { members: '65 - 74', cover: 'R10 000', premium: 'R140' },
+          { members: '65 - 74', cover: 'R15 000', premium: 'R200' },
+          { members: '75 - 84', cover: 'R10 000', premium: 'R205' },
+        ]}
+      />
+
+      {/* Single Member Plans */}
+      <PriceTable
+        title="SINGLE MEMBER 18-64 YEARS"
+        icon={<Shield className="w-6 h-6 text-white" />}
+        accent="green"
+        rows={[
+          { members: 'Cover', cover: 'R5 000', premium: 'R45' },
+          { members: 'Cover', cover: 'R10 000', premium: 'R65' },
+          { members: 'Cover', cover: 'R15 000', premium: 'R90' },
+          { members: 'Cover', cover: 'R20 000', premium: 'R130' },
+          { members: 'Cover', cover: 'R30 000', premium: 'R170' }
+        ]}
+      />
+
+      {/* Cash or Service Section */}
+      <div>
+        <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 mb-6 ${
+          theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-amber-900/20 border-amber-700' : 'bg-gradient-to-br from-white to-amber-50 border-amber-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+              <DollarSign className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                CASH OR SERVICE
+              </h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-6">
+          {/* R10,000 Benefits */}
+          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
+              theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <p className="font-bold text-lg">R10 000 Benefits</p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Flat lid coffin</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Tent</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">40 chairs</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">2 tables</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 funeral programmes</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Hearse</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Family car</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Coffin spread</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 km distance at no extra cost</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Storage, delivery & registration of death</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Grave marker</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Grave arrangement</span>
+              </div>
+            </div>
+          </div>
+
+          {/* R15,000 Benefits */}
+          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
+            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <p className="font-bold text-lg">R15 000 Benefits</p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Three tier coffin (Pine)</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Tent</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">50 chairs</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">2 tables</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 funeral programmes</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Hearse</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Family car</span>
+              </div>
+            </div>
+          </div>
+
+          {/* R20,000 Benefits */}
+          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
+            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <p className="font-bold text-lg">R20 000 Benefits</p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Dutch casket</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Tent</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">50 chairs</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">2 tables</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 funeral programmes</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Hearse</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Family car</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Coffin spread</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 km distance at no extra cost</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Storage, delivery & registration of death</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Grave marker</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Grave yard arrangement</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Toilet</span>
+              </div>
+            </div>
+          </div>
+
+          {/* R25,000 Benefits */}
+          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
+            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <p className="font-bold text-lg">R25 000 Benefits</p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Flat lid cherry casket</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Tent</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">70 Chairs</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">4 Tables</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">120 Funeral programmes</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Hearse</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Family Car</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Big Coffin spread</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 km distance at no extra cost</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Storage, delivery and registration of death</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Grave marker</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Grave arrangement</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Toilets</span>
+              </div>
+            </div>
+          </div>
+
+          {/* R30,000 Benefits */}
+          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
+            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <p className="font-bold text-lg">R30 000 Benefits</p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Min Dome/Flour tier casket</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Tent</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">80 Chairs</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">6 Tables</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">150 Funeral programmes</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Hearse</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Family car (2)</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Big Coffin spread</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">2 Poses</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">100 km distance at no extra cost</span>
+              </div>
+              <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">Storage, delivery & registration of death</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Box */}
+          <div className={`w-full p-3 rounded-lg ${
+            theme === 'dark' ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'
+          }`}>
+            <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
+              <Info className="w-4 h-4 flex-shrink-0" />
+              <span>Choose between cash payout or full service package</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Information */}
+      <div>
+        <h2 className={`text-3xl font-bold mb-3 text-center ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          Get In Touch
+        </h2>
+        <p className={`text-center mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+          Visit us at our branches or reach out to us
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Tembisa Branch */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border-blue-700' : 'bg-gradient-to-br from-white to-blue-50 border-blue-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                <MapPin className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-blue-600 dark:text-blue-400">TEMBISA BRANCH</h3>
+                <p className="text-xs text-blue-700 dark:text-blue-300">Main Office</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Address</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">755 Kangaroo Crescent</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Temong Section, Tembisa</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Phone</p>
+                    <a href="tel:0315044185" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Tel: 031 504 4185</a>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Fax: 086 684 9777 / 086 516 0914</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Email</p>
+                    <a href="mailto:ubunye@ubunyefunerals.co.za" className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all">
+                      ubunye@ubunyefunerals.co.za
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Website</p>
+                    <a href="https://www.ubunyefunerals.co.za" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                      www.ubunyefunerals.co.za
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Kwamhlanga Branch */}
+          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+            theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-purple-900/20 border-purple-700' : 'bg-gradient-to-br from-white to-purple-50 border-purple-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                <MapPin className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400">KWAMHLANGA BRANCH</h3>
+                <p className="text-xs text-purple-700 dark:text-purple-300">Regional Office</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Address</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Mooki Road</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Kwamhlanga</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Phone</p>
+                    <a href="tel:0315044185" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Tel: 031 504 4185</a>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Fax: 086 684 9777 / 086 516 0914</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Email</p>
+                    <a href="mailto:ubunye@ubunyefunerals.co.za" className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all">
+                      ubunye@ubunyefunerals.co.za
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Website</p>
+                    <a href="https://www.ubunyefunerals.co.za" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                      www.ubunyefunerals.co.za
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Buttons */}
+        <div className={`rounded-xl border-2 p-6 text-center ${
+          theme === 'dark' ? 'bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600' : 'bg-gradient-to-r from-slate-50 to-slate-100 border-slate-300'
+        }`}>
+          <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+            Ready to Get Started?
+          </h3>
+          <p className={`mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+            Contact us today for more information or to sign up
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a 
+              href="tel:0315044185" 
+              className="w-full sm:w-auto inline-flex justify-center items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
+            >
+              <Phone className="w-5 h-5" />
+              Call Us Now
+            </a>
+            <a 
+              href="mailto:ubunye@ubunyefunerals.co.za" 
+              className={`w-full sm:w-auto inline-flex justify-center items-center gap-2 rounded-lg px-8 py-4 font-bold text-lg border-2 transition-all hover:scale-105 shadow-lg hover:shadow-xl ${
+                theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-slate-400 text-slate-800 hover:bg-slate-100'
+              }`}
+            >
+              <Mail className="w-5 h-5" />
+              Email Us
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
