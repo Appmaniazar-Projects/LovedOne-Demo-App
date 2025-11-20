@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Search, User, LogOut, Settings, Sun, Moon } from 'lucide-react';
+import { Bell, Search, User, LogOut, Settings, Sun, Moon, Menu } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { mockNotifications } from '../../data/mockData';
 import { supabase } from '../../supabaseClient';
 
 interface HeaderProps {
   parlorName: string;
+  onMenuClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ parlorName }) => {
+const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -48,11 +51,20 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
   };
 
   return (
-    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4 w-full animate-slideInDown`}>
-      <div className="flex items-center justify-between w-full">
+    <header className={`bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-3 sm:px-6 py-4 w-full animate-slideInDown`}>
+      <div className="flex items-center justify-between w-full gap-2 sm:gap-4">
+        {/* Mobile Menu Button */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-300"
+          aria-label="Toggle menu"
+        >
+          <Menu className="w-6 h-6 text-slate-800 dark:text-white" />
+        </button>
+
         {/* Parlor Name */}
         <div className="animate-fadeIn animation-delay-100">
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+          <h1 className="text-base sm:text-xl font-bold text-slate-800 dark:text-white">
             {parlorName.split('').map((letter, index) => (
               <span 
                 key={index} 
@@ -65,20 +77,71 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           </h1>
         </div>
 
-        {/* Search */}
-        <div className="flex-1 max-w-md ml-6 animate-fadeIn animation-delay-200">
-          <div className="relative">
+        {/* Search - Hidden on mobile, visible on md and up */}
+        <div className="hidden md:flex flex-1 max-w-md ml-2 md:ml-6 animate-fadeIn animation-delay-200">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-400 w-5 h-5 animate-pulse-slow" />
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchResults(e.target.value.length > 0);
+              }}
+              onFocus={() => searchQuery.length > 0 && setShowSearchResults(true)}
+              onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
               placeholder="Search cases, clients, or tasks..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:shadow-md"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:shadow-md text-sm"
             />
+            
+            {/* Search Results Dropdown */}
+            {showSearchResults && searchQuery && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-slate-200 dark:border-gray-700 max-h-96 overflow-y-auto z-50 animate-fadeInDown">
+                <div className="p-3 border-b border-slate-200 dark:border-gray-700">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-gray-300">
+                    Search results for "{searchQuery}"
+                  </p>
+                </div>
+                
+                {/* Mock search results - you can replace with actual data */}
+                <div className="p-2">
+                  <div className="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">
+                    Clients
+                  </div>
+                  <button className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">John Doe</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">Client ID: #12345</p>
+                  </button>
+                  
+                  <div className="px-3 py-2 mt-2 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">
+                    Cases
+                  </div>
+                  <button className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">Case #789</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">Status: Active</p>
+                  </button>
+                  
+                  <div className="px-3 py-2 mt-2 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">
+                    Tasks
+                  </div>
+                  <button className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">Follow up with family</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">Due: Today</p>
+                  </button>
+                </div>
+                
+                <div className="p-3 border-t border-slate-200 dark:border-gray-700">
+                  <button className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
+                    View all results
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right section */}
-        <div className="flex items-center space-x-4 animate-fadeIn animation-delay-300">
+        <div className="flex items-center space-x-2 sm:space-x-4 animate-fadeIn animation-delay-300">
           {/* Notifications */}
           <div className="relative">
             <button
@@ -142,7 +205,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
           <div className="relative">
             <button
               onClick={() => setShowProfile(!showProfile)}
-              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105"
+              className="flex items-center space-x-2 sm:space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105"
             >
               {loading ? (
                 <div className="w-8 h-8 bg-slate-200 rounded-full animate-pulse" />
@@ -153,7 +216,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName }) => {
                     alt="Kgopotso"
                     className="w-8 h-8 rounded-full transition-transform duration-300 hover:scale-110 hover:rotate-6"
                   />
-                  <div className="text-left">
+                  <div className="text-left hidden sm:block">
                     <p className="text-sm font-medium text-slate-900 dark:text-white">Kgopotso</p>
                     <p className="text-xs text-slate-500 dark:text-gray-400 capitalize">{user.role}</p>
                   </div>

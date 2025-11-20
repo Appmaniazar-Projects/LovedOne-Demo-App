@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileText, TrendingUp, Calendar, DollarSign, Users, BarChart3 } from 'lucide-react';
+import { Download, FileText, TrendingUp, Calendar, Users, BarChart3 } from 'lucide-react';
 import { mockAnalytics } from '../../data/mockData';
 import jsPDF from 'jspdf';
 
@@ -160,7 +160,7 @@ const Reports: React.FC = () => {
 
   const reportTypes = [
     { id: 'overview', name: 'Business Overview', icon: BarChart3, description: 'General business metrics and KPIs' },
-    { id: 'financial', name: 'Financial Report', icon: DollarSign, description: 'Revenue, payments, and financial analysis' },
+    { id: 'financial', name: 'Financial Report', icon: () => <span className="font-bold text-2xl">R</span>, description: 'Revenue, payments, and financial analysis' },
     { id: 'cases', name: 'Cases Report', icon: FileText, description: 'Case statistics and completion rates' },
     { id: 'clients', name: 'Client Report', icon: Users, description: 'Client demographics and relationships' },
     { id: 'services', name: 'Services Report', icon: Calendar, description: 'Service types and scheduling analysis' },
@@ -186,7 +186,7 @@ const Reports: React.FC = () => {
               <p className="text-green-100 dark:text-green-200">Total Revenue</p>
               <p className="text-3xl font-bold">{formatCurrency(mockAnalytics.totalRevenue)}</p>
             </div>
-            <DollarSign className="w-8 h-8 text-green-200 dark:text-green-400" />
+            <span className="text-4xl font-bold text-green-200 dark:text-green-400">R</span>
           </div>
         </div>
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white dark:bg-gradient-to-r dark:from-purple-900 dark:to-purple-800">

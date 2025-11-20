@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
-              <li key={item.id} className="animate-fadeInUp" style={{ animationDelay: `${index * 150}ms` }}>
+              <li key={item.id} className="animate-fadeInUp relative group" style={{ animationDelay: `${index * 150}ms` }}>
                 <Link
                   to={item.path}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} px-4 py-2.5 rounded-lg text-left transition-all duration-300 transform hover:scale-105 ${isCollapsed ? '' : 'hover:translate-x-1'} ${
@@ -94,11 +94,17 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
                       ? 'bg-blue-600 text-white shadow-lg'
                       : `text-${theme === 'dark' ? 'slate-300' : 'slate-900'} hover:bg-${theme === 'dark' ? 'slate-800' : 'slate-100'} hover:text-${theme === 'dark' ? 'white' : 'slate-900'}`
                   }`}
-                  title={isCollapsed ? item.label : ''}
                 >
                   <Icon className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
                   {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
                 </Link>
+                {/* Custom Tooltip for collapsed state */}
+                {isCollapsed && (
+                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
+                    {item.label}
+                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                  </div>
+                )}
               </li>
             );
           })}

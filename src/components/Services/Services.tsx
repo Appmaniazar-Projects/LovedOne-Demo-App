@@ -11,10 +11,11 @@ import {
   Mail,
   Clock,
   Info,
-  DollarSign,
   Award,
   Check,
-  ArrowRight
+  ArrowRight,
+  X,
+  Send
 } from 'lucide-react';
 
 interface PlanCardProps {
@@ -203,7 +204,7 @@ const PriceTable: React.FC<PriceTableProps> = ({ title, rows, icon, accent = 'bl
               </th>
               <th className="px-6 py-4 text-right text-sm font-bold text-white">
                 <div className="flex items-center justify-end gap-2">
-                  <DollarSign className="w-4 h-4" />
+                  <span className="font-bold">R</span>
                   Premium
                 </div>
               </th>
@@ -418,14 +419,38 @@ const PriceTable: React.FC<PriceTableProps> = ({ title, rows, icon, accent = 'bl
   );
 };
 
+interface SelectedPlan {
+  name: string;
+  coverage: string;
+  premium: string;
+}
+
 const Services: React.FC = () => {
   const { theme } = useTheme();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SelectedPlan | null>(null);
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
 
-  const handlePlanSelect = (planName: string) => {
-    setSelectedPlan(planName);
-    setShowConfirmation(true);
+  const handlePlanSelect = (planName: string, coverage: string, premium: string) => {
+    console.log('Plan selected:', { planName, coverage, premium });
+    try {
+      // If clicking the same plan, deselect it
+      if (selectedPlan?.name === planName) {
+        setSelectedPlan(null);
+        setShowInquiryModal(false);
+      } else {
+        // Select new plan and show modal
+        const newPlan = { name: planName, coverage, premium };
+        console.log('Setting new plan:', newPlan);
+        setSelectedPlan(newPlan);
+        setShowInquiryModal(true);
+      }
+    } catch (error) {
+      console.error('Error in handlePlanSelect:', error);
+    }
+  };
+
+  const isPlanSelected = (planName: string) => {
+    return selectedPlan?.name === planName;
   };
 
   return (
@@ -485,7 +510,7 @@ const Services: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-green-700 dark:text-green-300">Plan Selected</p>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'}`}>{selectedPlan}</p>
+                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-slate-600'}`}>{selectedPlan.name} - {selectedPlan.premium}/month</p>
                 </div>
               </div>
               <button
@@ -504,8 +529,8 @@ const Services: React.FC = () => {
             premium="R120.00"
             accent="purple"
             icon={<Users className="w-6 h-6 text-purple-500" />}
-            isSelected={selectedPlan === "FAMILY BURIAL SOCIETY (FBS)"}
-            onSelect={() => handlePlanSelect("FAMILY BURIAL SOCIETY (FBS)")}
+            isSelected={selectedPlan?.name === "FAMILY BURIAL SOCIETY (FBS)"}
+            onSelect={() => handlePlanSelect("FAMILY BURIAL SOCIETY (FBS)", "11 family members", "R120.00")}
             benefits={[
               'Coffin, Hearse & Family car',
               'Mortuary storage',
@@ -521,8 +546,8 @@ const Services: React.FC = () => {
             premium="R170.00"
             accent="blue"
             icon={<Shield className="w-6 h-6 text-blue-500" />}
-            isSelected={selectedPlan === "KOPANO (KPND)"}
-            onSelect={() => handlePlanSelect("KOPANO (KPND)")}
+            isSelected={selectedPlan?.name === "KOPANO (KPND)"}
+            onSelect={() => handlePlanSelect("KOPANO (KPND)", "11 family members", "R170.00")}
             isPopular={true}
             benefits={[
               'Coffin/hearse & Family car',
@@ -540,8 +565,8 @@ const Services: React.FC = () => {
             premium="R270.00"
             accent="green"
             icon={<Award className="w-6 h-6 text-green-500" />}
-            isSelected={selectedPlan === "URMBISA"}
-            onSelect={() => handlePlanSelect("URMBISA")}
+            isSelected={selectedPlan?.name === "URMBISA"}
+            onSelect={() => handlePlanSelect("URMBISA", "10 family members", "R270.00")}
             benefits={[
               'Casket/Hearse &Family car',
               'Coffin Spread',
@@ -558,12 +583,12 @@ const Services: React.FC = () => {
           <div className="mt-8 flex justify-center">
             <button
               onClick={() => {
-                alert(`Thank you for selecting ${selectedPlan}! Our team will contact you shortly to complete your registration.`);
+                alert(`Thank you for selecting ${selectedPlan.name}! Our team will contact you shortly to complete your registration.`);
               }}
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3"
             >
               <Phone className="w-6 h-6" />
-              Proceed with {selectedPlan}
+              Proceed with {selectedPlan.name}
               <ArrowRight className="w-6 h-6" />
             </button>
           </div>
@@ -581,9 +606,19 @@ const Services: React.FC = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Non Members */}
-          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
-            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-          }`}>
+          <div className={`relative rounded-xl border-2 p-6 shadow-lg transition-all duration-300 cursor-pointer ${
+            isPlanSelected('INKOMO - Non Members')
+              ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-500 shadow-xl scale-105'
+              : theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:shadow-xl hover:-translate-y-1' : 'bg-white border-slate-200 hover:shadow-xl hover:-translate-y-1'
+          }`}
+          onClick={() => handlePlanSelect('INKOMO - Non Members', 'From R105', 'R105')}>
+            {isPlanSelected('INKOMO - Non Members') && (
+              <div className="absolute -top-3 -right-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
+                  <Check className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg">
                 <Users className="w-6 h-6 text-white" />
@@ -652,9 +687,19 @@ const Services: React.FC = () => {
           </div>
 
           {/* Extended */}
-          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
-            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-          }`}>
+          <div className={`relative rounded-xl border-2 p-6 shadow-lg transition-all duration-300 cursor-pointer ${
+            isPlanSelected('INKOMO - Immediate Family')
+              ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500 shadow-xl scale-105'
+              : theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:shadow-xl hover:-translate-y-1' : 'bg-white border-slate-200 hover:shadow-xl hover:-translate-y-1'
+          }`}
+          onClick={() => handlePlanSelect('INKOMO - Immediate Family', 'R75', 'R75')}>
+            {isPlanSelected('INKOMO - Immediate Family') && (
+              <div className="absolute -top-3 -right-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                  <Check className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
                 <Shield className="w-6 h-6 text-white" />
@@ -672,7 +717,7 @@ const Services: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-white" />
+                      <span className="text-white font-bold text-xl">R</span>
                     </div>
                     <span className="font-bold text-lg">Monthly Premium</span>
                   </div>
@@ -722,9 +767,19 @@ const Services: React.FC = () => {
           </div>
 
           {/* Extended - Duplicate */}
-          <div className={`rounded-xl border-2 p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
-            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
-          }`}>
+          <div className={`relative rounded-xl border-2 p-6 shadow-lg transition-all duration-300 cursor-pointer ${
+            isPlanSelected('INKOMO - Extended Coverage')
+              ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500 shadow-xl scale-105'
+              : theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:shadow-xl hover:-translate-y-1' : 'bg-white border-slate-200 hover:shadow-xl hover:-translate-y-1'
+          }`}
+          onClick={() => handlePlanSelect('INKOMO - Extended Coverage', 'R70', 'R70')}>
+            {isPlanSelected('INKOMO - Extended Coverage') && (
+              <div className="absolute -top-3 -right-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                  <Check className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
                 <Shield className="w-6 h-6 text-white" />
@@ -743,7 +798,7 @@ const Services: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-white" />
+                      <span className="text-white font-bold text-xl">R</span>
                     </div>
                     <span className="font-bold text-lg">Monthly Premium</span>
                   </div>
@@ -780,7 +835,7 @@ const Services: React.FC = () => {
               <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                    <DollarSign className="w-6 h-6 text-white" />
+                    <span className="text-white font-bold text-2xl">R</span>
                   </div>
                   <div>
                     <p className="font-semibold text-green-900 dark:text-green-200 mb-1">Special Voucher Option</p>
@@ -827,7 +882,7 @@ const Services: React.FC = () => {
                   </div>
                   
                   <div className="flex items-start gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-gray-700/50 transition-colors">
-                    <DollarSign className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-amber-500 font-bold mt-0.5 flex-shrink-0">R</span>
                     <span className="text-xs">R150.00 joining fee</span>
                   </div>
                   
@@ -947,7 +1002,7 @@ const Services: React.FC = () => {
               <div className="group p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 transition-all duration-300 hover:shadow-md">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-                    <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">R</span>
                   </div>
                   <div>
                     <p className="font-medium text-sm">R150.00 joining fee</p>
@@ -1046,7 +1101,7 @@ const Services: React.FC = () => {
         }`}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
-              <DollarSign className="w-6 h-6 text-white" />
+              <span className="text-white font-bold text-2xl">R</span>
             </div>
             <div>
               <h3 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
@@ -1058,14 +1113,27 @@ const Services: React.FC = () => {
 
         <div className="flex flex-wrap gap-6">
           {/* R10,000 Benefits */}
-          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
-              theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
-              </div>
-              <p className="font-bold text-lg">R10 000 Benefits</p>
+          <div className={`relative flex-1 min-w-[300px] p-4 rounded-lg border-2 transition-all duration-300 cursor-pointer hover:shadow-lg ${
+              isPlanSelected('R10 000 Benefits')
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-lg scale-105'
+                : theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+            }`}
+            onClick={() => handlePlanSelect('R10 000 Benefits', 'R10 000', 'R65')}>
+              {isPlanSelected('R10 000 Benefits') && (
+                <div className="absolute -top-3 -right-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 flex items-center justify-center shadow-lg">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <p className="font-bold text-lg">R10 000 Benefits</p>
+                </div>
+                <span className="text-sm font-semibold text-green-600 dark:text-green-400">R65/mo</span>
             </div>
             
             <div className="grid grid-cols-1 gap-2">
@@ -1121,14 +1189,27 @@ const Services: React.FC = () => {
           </div>
 
           {/* R15,000 Benefits */}
-          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
-            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
+          <div className={`relative flex-1 min-w-[300px] p-4 rounded-lg border-2 transition-all duration-300 cursor-pointer hover:shadow-lg ${
+              isPlanSelected('R15 000 Benefits')
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-lg scale-105'
+                : theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+            }`}
+            onClick={() => handlePlanSelect('R15 000 Benefits', 'R15 000', 'R90')}>
+              {isPlanSelected('R15 000 Benefits') && (
+                <div className="absolute -top-3 -right-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 flex items-center justify-center shadow-lg">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              )}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <p className="font-bold text-lg">R15 000 Benefits</p>
               </div>
-              <p className="font-bold text-lg">R15 000 Benefits</p>
+              <span className="text-sm font-semibold text-green-600 dark:text-green-400">R90/mo</span>
             </div>
             
             <div className="grid grid-cols-1 gap-2">
@@ -1164,14 +1245,27 @@ const Services: React.FC = () => {
           </div>
 
           {/* R20,000 Benefits */}
-          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
-            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
+          <div className={`relative flex-1 min-w-[300px] p-4 rounded-lg border-2 transition-all duration-300 cursor-pointer hover:shadow-lg ${
+              isPlanSelected('R20 000 Benefits')
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-lg scale-105'
+                : theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+            }`}
+            onClick={() => handlePlanSelect('R20 000 Benefits', 'R20 000', 'R130')}>
+              {isPlanSelected('R20 000 Benefits') && (
+                <div className="absolute -top-3 -right-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 flex items-center justify-center shadow-lg">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              )}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <p className="font-bold text-lg">R20 000 Benefits</p>
               </div>
-              <p className="font-bold text-lg">R20 000 Benefits</p>
+              <span className="text-sm font-semibold text-green-600 dark:text-green-400">R130/mo</span>
             </div>
             
             <div className="grid grid-cols-1 gap-2">
@@ -1231,14 +1325,27 @@ const Services: React.FC = () => {
           </div>
 
           {/* R25,000 Benefits */}
-          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
-            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
+          <div className={`relative flex-1 min-w-[300px] p-4 rounded-lg border-2 transition-all duration-300 cursor-pointer hover:shadow-lg ${
+              isPlanSelected('R25 000 Benefits')
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-lg scale-105'
+                : theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+            }`}
+            onClick={() => handlePlanSelect('R25 000 Benefits', 'R25 000', 'R150')}>
+              {isPlanSelected('R25 000 Benefits') && (
+                <div className="absolute -top-3 -right-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 flex items-center justify-center shadow-lg">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              )}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <p className="font-bold text-lg">R25 000 Benefits</p>
               </div>
-              <p className="font-bold text-lg">R25 000 Benefits</p>
+              <span className="text-sm font-semibold text-green-600 dark:text-green-400">R150/mo</span>
             </div>
             
             <div className="grid grid-cols-1 gap-2">
@@ -1298,14 +1405,27 @@ const Services: React.FC = () => {
           </div>
 
           {/* R30,000 Benefits */}
-          <div className={`flex-1 min-w-[300px] p-4 rounded-lg border-2 ${
-            theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
+          <div className={`relative flex-1 min-w-[300px] p-4 rounded-lg border-2 transition-all duration-300 cursor-pointer hover:shadow-lg ${
+              isPlanSelected('R30 000 Benefits')
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-lg scale-105'
+                : theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-slate-50 border-slate-200'
+            }`}
+            onClick={() => handlePlanSelect('R30 000 Benefits', 'R30 000', 'R170')}>
+              {isPlanSelected('R30 000 Benefits') && (
+                <div className="absolute -top-3 -right-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 flex items-center justify-center shadow-lg">
+                    <Check className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              )}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <p className="font-bold text-lg">R30 000 Benefits</p>
               </div>
-              <p className="font-bold text-lg">R30 000 Benefits</p>
+              <span className="text-sm font-semibold text-green-600 dark:text-green-400">R170/mo</span>
             </div>
             
             <div className="grid grid-cols-1 gap-2">
@@ -1551,6 +1671,96 @@ const Services: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Inquiry Modal */}
+      {showInquiryModal && selectedPlan && (() => {
+        console.log('Rendering modal with plan:', selectedPlan);
+        return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className={`max-w-lg w-full rounded-2xl shadow-2xl overflow-hidden ${
+            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Plan Selected</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowInquiryModal(false);
+                    setSelectedPlan(null);
+                  }}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className={`p-6 rounded-lg border-2 mb-6 ${
+                theme === 'dark' ? 'bg-gray-700/50 border-gray-600' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                    <Shield className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold mb-1">{selectedPlan.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Coverage: {selectedPlan.coverage}</p>
+                  </div>
+                </div>
+                
+                <div className={`p-4 rounded-lg ${
+                  theme === 'dark' ? 'bg-green-900/20 border-2 border-green-700' : 'bg-green-50 border-2 border-green-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Monthly Premium:</span>
+                    <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                      {selectedPlan.premium}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className={`text-sm text-center mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+                Would you like to inquire about this funeral plan? We'll send your details to our team.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setShowInquiryModal(false);
+                    setSelectedPlan(null);
+                  }}
+                  className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                      : 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                  }`}
+                >
+                  Choose Different Plan
+                </button>
+                <a
+                  href={`mailto:ubunye@ubunyefunerals.co.za?subject=${encodeURIComponent('Funeral Plan Inquiry - ' + selectedPlan.name)}&body=${encodeURIComponent('Hello,\n\nI am interested in the following funeral plan:\n\nPlan: ' + selectedPlan.name + '\nCoverage: ' + selectedPlan.coverage + '\nMonthly Premium: ' + selectedPlan.premium + '\n\nPlease contact me with more information about this plan.\n\nThank you.')}`}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-lg font-semibold hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg"
+                  onClick={() => setShowInquiryModal(false)}
+                >
+                  <Send className="w-5 h-5" />
+                  Send Inquiry
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
     </div>
   );
 };

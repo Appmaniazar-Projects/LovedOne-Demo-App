@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Clock, TrendingUp, DollarSign, AlertTriangle, Users, ArrowRight } from 'lucide-react';
+import { FileText, Clock, TrendingUp, DollarSign, AlertTriangle, Users, ArrowRight, Heart, CreditCard, Shield, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatsCard from './StatsCard';
 import RecentActivity from './RecentActivity';
@@ -21,11 +21,19 @@ interface Client {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = window.location.pathname;
+  const parlorSlug = location.split('/')[1]; // Extract parlor slug from URL
   const [clients, setClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<{ role: string; full_name: string } | null>(null);
+  const [paymentsData, setPaymentsData] = useState({
+    totalPayments: 0,
+    pendingPayments: 0,
+    completedPayments: 0,
+    totalRevenue: 0
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-ZA', {
@@ -99,6 +107,28 @@ const Dashboard: React.FC = () => {
             console.log('Fetched clients:', clientsData);
             setClients(clientsData || []);
             setTotalClients(count || 0);
+          }
+
+          // Fetch payments data
+          const { data: payments, error: paymentsError } = await supabase
+            .from('payments')
+            .select('amount, status');
+
+          if (paymentsError) {
+            console.error('Error fetching payments:', paymentsError);
+          } else if (payments) {
+            const pending = payments.filter(p => p.status === 'pending').length;
+            const completed = payments.filter(p => p.status === 'completed').length;
+            const revenue = payments
+              .filter(p => p.status === 'completed')
+              .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+            setPaymentsData({
+              totalPayments: payments.length,
+              pendingPayments: pending,
+              completedPayments: completed,
+              totalRevenue: revenue
+            });
           }
         }
       } catch (err) {
@@ -234,13 +264,173 @@ const Dashboard: React.FC = () => {
         <RecentActivity />
       </div>
 
+      {/* Services & Payments Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeInUp" style={{ animationDelay: '1000ms' }}>
+        {/* Services Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                <Heart className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Funeral Services</h3>
+                <p className="text-xs text-slate-600 dark:text-gray-400">Available plans & coverage</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate(`/${parlorSlug}/services`)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+            >
+              View All
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Main Plans */}
+            <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-purple-900 dark:text-purple-200">Main Funeral Plans</h4>
+                <span className="text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full">3 Plans</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-slate-700 dark:text-gray-300">Family Burial Society - R120/month</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-slate-700 dark:text-gray-300">Kopano (Most Popular) - R170/month</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-slate-700 dark:text-gray-300">Urmbisa Premium - R270/month</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Inkomo Products */}
+            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-blue-900 dark:text-blue-200">Inkomo Products</h4>
+                <span className="text-xs bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">Flexible</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-slate-700 dark:text-gray-300">Non-Members from R105</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-slate-700 dark:text-gray-300">Immediate Family - R75</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-slate-700 dark:text-gray-300">Extended Coverage - R70</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Coverage Info */}
+            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <p className="text-xs text-green-800 dark:text-green-200 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                Coverage from R5,000 to R30,000 available
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Payments Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                <CreditCard className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Payment Overview</h3>
+                <p className="text-xs text-slate-600 dark:text-gray-400">Transaction summary</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate(`/${parlorSlug}/payments`)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+            >
+              View All
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Total Payments */}
+            <div className="p-4 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 dark:text-gray-400">Total Payments</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{paymentsData.totalPayments}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending & Completed */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <p className="text-xs text-slate-600 dark:text-gray-400">Pending</p>
+                </div>
+                <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{paymentsData.pendingPayments}</p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <p className="text-xs text-slate-600 dark:text-gray-400">Completed</p>
+                </div>
+                <p className="text-xl font-bold text-green-600 dark:text-green-400">{paymentsData.completedPayments}</p>
+              </div>
+            </div>
+
+            {/* Total Revenue */}
+            <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 dark:text-gray-400">Total Revenue</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(paymentsData.totalRevenue)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Methods Info */}
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-600 dark:text-gray-400 flex items-center gap-2">
+                <CreditCard className="w-4 h-4" />
+                Accepting Cash, Card, EFT & Mobile Money
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Recent Clients */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 transition-colors duration-200 animate-fadeInUp" style={{ animationDelay: '1200ms' }}>
         <div className="p-6 border-b border-slate-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Recent Clients</h3>
             <button
-              onClick={() => navigate('/clients')}
+              onClick={() => navigate(`/${parlorSlug}/clients`)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
             >
               View All
@@ -264,7 +454,7 @@ const Dashboard: React.FC = () => {
               <Users className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
               <p className="text-gray-600 dark:text-gray-400">No clients yet</p>
               <button
-                onClick={() => navigate('/clients')}
+                onClick={() => navigate(`/${parlorSlug}/clients`)}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Add Your First Client
@@ -275,7 +465,7 @@ const Dashboard: React.FC = () => {
               {clients.map((client, index) => (
                 <div
                   key={client.id}
-                  onClick={() => navigate(`/clients/${client.id}`)}
+                  onClick={() => navigate(`/${parlorSlug}/clients/${client.id}`)}
                   className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg transition-all duration-300 hover:shadow-md hover:scale-[1.02] cursor-pointer animate-fadeInUp"
                   style={{ animationDelay: `${1300 + index * 100}ms` }}
                 >

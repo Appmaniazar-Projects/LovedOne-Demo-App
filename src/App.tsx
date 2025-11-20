@@ -26,6 +26,7 @@ const ParlorLayout = () => {
   const { parlorSlug } = useParams<{ parlorSlug: string }>();
   const [parlorName, setParlorName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchParlorInfo = async () => {
@@ -55,10 +56,29 @@ const ParlorLayout = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar parlorSlug={parlorSlug!} />
+        {/* Desktop Sidebar - hidden on mobile */}
+        <div className="hidden lg:block">
+          <Sidebar parlorSlug={parlorSlug!} />
+        </div>
+        
+        {/* Mobile Sidebar - overlay */}
+        {isMobileSidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+            {/* Sidebar */}
+            <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+              <Sidebar parlorSlug={parlorSlug!} />
+            </div>
+          </>
+        )}
+        
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <Header parlorName={parlorName} />
-          <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-6">
+          <Header parlorName={parlorName} onMenuClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
+          <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-3 sm:p-4 md:p-6">
             <Outlet />
           </main>
         </div>
@@ -142,7 +162,6 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
 
-    return () => subscription.unsubscribe();
     return () => {
       subscription.unsubscribe();
     };
@@ -150,10 +169,6 @@ function App() {
 
   if (loading) {
     return <div>Loading application...</div>; // Initial app load
-  }
-
-  if (!session) {
-    return <LoginPage />;
   }
 
   return (
@@ -167,8 +182,10 @@ function App() {
           </Link>
         </div>
       } />
+      {/* Login and role-based redirect routes are kept but no longer block rendering when there is no session */}
       <Route path="/login" element={<AuthRedirect />} />
-      <Route path="/" element={<RoleBasedRedirect />} />
+      {/* For development, redirect root directly to a demo parlor dashboard without requiring login */}
+      <Route path="/" element={<Navigate to="/demo-parlor/dashboard" replace />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
       <Route path="/parlors/:id" element={<ParlorDetails />} />
       <Route path="/:parlorSlug" element={<ParlorLayout />}>

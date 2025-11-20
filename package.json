@@ -16,7 +16,7 @@
     "@supabase/supabase-js": "^2.43.4",
     "class-variance-authority": "^0.7.0",
     "framer-motion": "^12.23.12",
-    "jspdf": "^2.5.2",
+    "jspdf": "^3.0.3",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -38,6 +38,6 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "vite": "^7.2.2"
   }
 }
