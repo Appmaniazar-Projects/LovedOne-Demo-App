@@ -23,37 +23,19 @@ import ClientDetails from './components/Clients/ClientDetails';
 
 // The layout for a specific parlor, including sidebar, header, and content
 const ParlorLayout = () => {
-  const { parlorId } = useParams<{ parlorId: string }>();
+  const { parlorName } = useParams<{ parlorName: string }>();
   const [parlorNameState, setParlorName] = useState('');
   const [loading, setLoading] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const fetchParlorName = async () => {
-      if (parlorId) {
-        try {
-          const { data: parlorData, error } = await supabase
-            .from('parlors')
-            .select('name')
-            .eq('id', parlorId)
-            .single();
-          
-          if (error) {
-            console.error('Error fetching parlor name:', error);
-            setParlorName('Unknown Parlor');
-          } else if (parlorData) {
-            setParlorName(parlorData.name);
-          }
-        } catch (err) {
-          console.error('Failed to fetch parlor:', err);
-          setParlorName('Unknown Parlor');
-        }
-      }
-      setLoading(false);
-    };
-
-    fetchParlorName();
-  }, [parlorId]);
+    if (parlorName) {
+      setParlorName(decodeURIComponent(parlorName));
+    } else {
+      setParlorName('Unknown Parlor');
+    }
+    setLoading(false);
+  }, [parlorName]);
 
   if (loading) {
     return <div>Loading parlor...</div>;
