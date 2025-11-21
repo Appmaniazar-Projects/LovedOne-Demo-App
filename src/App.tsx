@@ -23,31 +23,37 @@ import ClientDetails from './components/Clients/ClientDetails';
 
 // The layout for a specific parlor, including sidebar, header, and content
 const ParlorLayout = () => {
-  const { parlorSlug } = useParams<{ parlorSlug: string }>();
-  const [parlorName, setParlorName] = useState('');
+  const { parlorId } = useParams<{ parlorId: string }>();
+  const [parlorNameState, setParlorName] = useState('');
   const [loading, setLoading] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const fetchParlorInfo = async () => {
-      if (!parlorSlug) return;
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('parlors')
-        .select('name')
-        .eq('slug', parlorSlug)
-        .single();
-
-      if (error) {
-        console.error('Error fetching parlor info:', error);
-      } else {
-        setParlorName(data.name);
+    const fetchParlorName = async () => {
+      if (parlorId) {
+        try {
+          const { data: parlorData, error } = await supabase
+            .from('parlors')
+            .select('name')
+            .eq('id', parlorId)
+            .single();
+          
+          if (error) {
+            console.error('Error fetching parlor name:', error);
+            setParlorName('Unknown Parlor');
+          } else if (parlorData) {
+            setParlorName(parlorData.name);
+          }
+        } catch (err) {
+          console.error('Failed to fetch parlor:', err);
+          setParlorName('Unknown Parlor');
+        }
       }
       setLoading(false);
     };
 
-    fetchParlorInfo();
-  }, [parlorSlug]);
+    fetchParlorName();
+  }, [parlorId]);
 
   if (loading) {
     return <div>Loading parlor...</div>;
@@ -56,29 +62,10 @@ const ParlorLayout = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar - hidden on mobile */}
-        <div className="hidden lg:block">
-          <Sidebar parlorSlug={parlorSlug!} />
-        </div>
-        
-        {/* Mobile Sidebar - overlay */}
-        {isMobileSidebarOpen && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-              onClick={() => setIsMobileSidebarOpen(false)}
-            />
-            {/* Sidebar */}
-            <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
-              <Sidebar parlorSlug={parlorSlug!} />
-            </div>
-          </>
-        )}
-        
+        <Sidebar parlorName={parlorNameState} />
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <Header parlorName={parlorName} onMenuClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
-          <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-3 sm:p-4 md:p-6">
+          <Header parlorName={parlorNameState} />
+          <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-6">
             <Outlet />
           </main>
         </div>
@@ -87,8 +74,6 @@ const ParlorLayout = () => {
     </div>
   );
 };
-
-
 
 const RoleBasedRedirect = () => {
   const navigate = useNavigate();
@@ -118,15 +103,15 @@ const RoleBasedRedirect = () => {
       } else if (profile.parlor_id) {
         const { data: parlor, error: parlorError } = await supabase
           .from('parlors')
-          .select('slug')
+          .select('name')
           .eq('id', profile.parlor_id)
           .single();
 
         if (parlorError) {
-          console.error('Error fetching parlor slug:', parlorError);
+          console.error('Error fetching parlor name:', parlorError);
           await supabase.auth.signOut();
         } else {
-          navigate(`/${parlor.slug}/dashboard`);
+          navigate(`/${encodeURIComponent(parlor.name)}/dashboard`);
         }
       } else {
         console.error('User has no role or assigned parlor.');
@@ -188,7 +173,7 @@ function App() {
       <Route path="/" element={<Navigate to="/demo-parlor/dashboard" replace />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
       <Route path="/parlors/:id" element={<ParlorDetails />} />
-      <Route path="/:parlorSlug" element={<ParlorLayout />}>
+      <Route path="/:parlorName" element={<ParlorLayout />}>
         {/* Redirect from /:parlorSlug to /:parlorSlug/dashboard */}
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />

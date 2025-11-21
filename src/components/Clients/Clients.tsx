@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight, FileText } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { supabase, isSupabaseConfigured } from '../../supabaseClient';
+import { supabase } from '../../supabaseClient';
 import AddClientModal from './AddClientModal';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { getMockClients } from '../../data/mockClients';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 export interface Client {
   id: string;
@@ -23,6 +22,7 @@ interface Profile {
   id: string;
   role: 'staff' | 'admin' | 'super_admin';
   full_name: string;
+  parlor_id?: string;
 }
 
 const Clients: React.FC = () => {
@@ -36,76 +36,42 @@ const Clients: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [staffList, setStaffList] = useState<Profile[]>([]);
+  const [currentParlorId, setCurrentParlorId] = useState<string>('');
+  const { parlorName } = useParams<{ parlorName: string }>();
 
   useEffect(() => {
     const fetchData = async () => {
+      if (parlorName) {
+        console.log('Fetching parlor ID for parlor name:', parlorName);
+        const { data: parlorData, error: parlorError } = await supabase
+          .from('parlors')
+          .select('id')
+          .eq('name', decodeURIComponent(parlorName))
+          .single();
+        
+        if (parlorError) {
+          console.error('Error fetching parlor:', parlorError);
+          setError(`Failed to find parlor: ${parlorName}`);
+        } else if (parlorData) {
+          console.log('Found parlor ID:', parlorData.id);
+          setCurrentParlorId(parlorData.id);
+        } else {
+          console.warn('No parlor found with name:', parlorName);
+          setError(`Parlor not found: ${parlorName}`);
+        }
+      } else {
+        console.warn('No parlor name provided in URL');
+        setError('No parlor specified in URL');
+      }
+
       try {
         setLoading(true);
         setError(null); // Clear any previous errors
-        const saveToLocalCache = (items: Client[]) => {
-          try {
-            localStorage.setItem('lovedone_mock_clients', JSON.stringify(items));
-          } catch {}
-        };
-        const readFromLocalCache = (): Client[] => {
-          try {
-            const raw = localStorage.getItem('lovedone_mock_clients');
-            return raw ? JSON.parse(raw) : [];
-          } catch {
-            return [];
-          }
-        };
-        
-        // Check if Supabase is configured
-        if (!isSupabaseConfigured()) {
-          console.log('Supabase not configured, using mock mode with dummy data');
-          // Set mock profile as super_admin to see all clients
-          const mockProfile = {
-            id: 'mock-user',
-            role: 'super_admin' as const,
-            full_name: 'Mock Super Admin'
-          };
-          setUserProfile(mockProfile);
-          
-          // Load mock clients from localStorage
-          const mockClients = getMockClients();
-          console.log('Loaded mock clients:', mockClients);
-          console.log('Number of mock clients:', mockClients.length);
-          setClients(mockClients);
-          saveToLocalCache(mockClients as any);
-          setLoading(false);
-          return;
-        }
 
-        console.log('Supabase is configured, proceeding with real database');
-
-        // Try to get user from Supabase
-        let user = null;
-        try {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          user = authUser;
-        } catch (authError) {
-          console.log('Supabase auth not available, using mock mode:', authError);
-        }
-
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          console.log('No user logged in, using mock mode with dummy data');
-          // Use mock data if no user is logged in - set as super_admin to see all clients
-          const mockProfile = {
-            id: 'mock-user',
-            role: 'super_admin' as const,
-            full_name: 'Mock Super Admin'
-          };
-          setUserProfile(mockProfile);
-          
-          // Load mock clients from localStorage
-          const mockClients = getMockClients();
-          console.log('Loaded mock clients:', mockClients);
-          console.log('Number of mock clients:', mockClients.length);
-          setClients(mockClients);
-          saveToLocalCache(mockClients as any);
-          setLoading(false);
-          return;
+          throw new Error('You must be logged in to view clients');
         }
 
         console.log('Fetching data for user:', user.id);
@@ -115,7 +81,7 @@ const Clients: React.FC = () => {
         try {
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('id, role, full_name')
+            .select('id, role, full_name, parlor_id')
             .eq('id', user.id)
             .single();
           profile = profileData;
@@ -124,7 +90,7 @@ const Clients: React.FC = () => {
           // Create a default profile object if profiles table doesn't exist
           profile = {
             id: user.id,
-            role: 'staff',
+            role: 'staff' as const,
             full_name: user.email || 'User'
           };
         }
@@ -134,21 +100,27 @@ const Clients: React.FC = () => {
         if (profile) {
           setUserProfile(profile);
 
-          // Fetch clients based on user role
+          // Fetch clients based on user role and parlor
           let query = supabase.from('clients').select('*');
 
           if (profile.role === 'staff') {
-            query = query.eq('user_id', user.id);
+            // Staff can only see their own clients within their parlor
+            query = query.eq('user_id', user.id).eq('parlor_id', currentParlorId);
+          } else if (profile.role === 'admin') {
+            // Admin can see all clients in their parlor
+            query = query.eq('parlor_id', currentParlorId);
+          } else if (profile.role === 'super_admin') {
+            // Super admin can see all clients in the current parlor (from URL)
+            query = query.eq('parlor_id', currentParlorId);
           }
 
           console.log('Fetching clients with query for role:', profile.role);
           const { data: clientsData, error: clientsError } = await query;
-          
+
           if (clientsError) {
             console.error('Error fetching clients:', clientsError);
-            // Fallback to cache
-            const cached = readFromLocalCache();
-            setClients(cached);
+            setError(clientsError.message);
+            setClients([]);
             return;
           }
 
@@ -170,19 +142,10 @@ const Clients: React.FC = () => {
                 }
               })
             );
-            // Merge with cached local clients (union by id)
-            const cached = readFromLocalCache();
-            const cachedById = new Map((cached || []).map((c) => [c.id, c]));
-            const mergedMap = new Map<string, any>();
-            for (const c of clientsWithDocCounts as any) mergedMap.set(c.id, c);
-            for (const c of cachedById.values()) if (!mergedMap.has(c.id)) mergedMap.set(c.id, c);
-            const merged = Array.from(mergedMap.values());
-            setClients(merged as any);
-            saveToLocalCache(merged as any);
+            setClients(clientsWithDocCounts);
           } else {
-            // No remote clients; use cache if present
-            const cached = readFromLocalCache();
-            setClients(cached);
+            // No remote clients
+            setClients([]);
           }
 
           // If admin/super_admin, fetch staff for assignment
@@ -258,8 +221,17 @@ const Clients: React.FC = () => {
           <p className="text-sm text-gray-600 dark:text-gray-400">Manage your clients and their information</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors w-full md:w-auto justify-center"
+          onClick={() => {
+            if (!currentParlorId) {
+              console.error('Cannot open modal: No parlor ID available');
+              setError('Cannot add client: Parlor not properly loaded');
+              return;
+            }
+            console.log('Opening modal with parlor ID:', currentParlorId);
+            setIsModalOpen(true);
+          }}
+          disabled={!currentParlorId}
+          className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors w-full md:w-auto justify-center"
         >
           <Plus className="w-5 h-5 mr-2" />
           Add Client
@@ -387,21 +359,22 @@ const Clients: React.FC = () => {
         </div>
       )}
 
-      <AddClientModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onClientAdded={(newClient: Client) => {
-          console.log('New client added:', newClient);
-          // Add document count to new client
-          const clientWithDocCount = { ...newClient, document_count: 0 };
-          setClients((prevClients) => {
-            const next = [...prevClients, clientWithDocCount];
-            try { localStorage.setItem('lovedone_mock_clients', JSON.stringify(next)); } catch {}
-            return next;
-          });
-          setIsModalOpen(false);
-        }}
-      />
+      {currentParlorId && (
+        <AddClientModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          parlorId={currentParlorId}
+          onClientAdded={(newClient: Client) => {
+            console.log('New client added:', newClient);
+            // Add document count to new client
+            const clientWithDocCount = { ...newClient, document_count: 0 };
+            setClients((prevClients) => {
+              return [...prevClients, clientWithDocCount];
+            });
+            setIsModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

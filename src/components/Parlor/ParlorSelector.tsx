@@ -7,71 +7,94 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface Parlor {
   id: string;
   name: string;
-  slug: string;
   address: string;
+  contact_email?: string;
+  contact_phone?: string;
+}
+
+interface UserProfile {
+  id: string;
+  role: 'super_admin' | 'admin' | 'staff' | 'viewer';
+  parlor_id?: string;
 }
 
 const ParlorSelector: React.FC = () => {
   const [parlors, setParlors] = useState<Parlor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [selectedParlor, setSelectedParlor] = useState<Parlor | null>(null);
   const [parlorForm, setParlorForm] = useState({
     name: '',
-    slug: '',
     address: ''
   });
   const { theme, toggleTheme } = useTheme();
-  const isDarkMode = theme === 'dark';
   const navigate = useNavigate();
 
-    useEffect(() => {
-    const fetchCurrentUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching user profile:', error);
-        } else {
-          setUser(profile);
-        }
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
 
   useEffect(() => {
-    const fetchParlors = async () => {
+    const fetchUserAndParlors = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.from('parlors').select('*');
+        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setError('You must be logged in to access parlors.');
+          return;
+        }
 
-        if (error) throw error;
-        setParlors(data ?? []);
+        // Get user profile
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('id, role, parlor_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          setError('Could not load user profile.');
+          return;
+        }
+
+        setUserProfile(profile);
+
+        // Fetch parlors based on user role
+        let parlorQuery = supabase.from('parlors').select('*');
+        
+        if (profile.role === 'super_admin') {
+          // Super admin can see all parlors
+          console.log('Super admin - showing all parlors');
+        } else if (profile.parlor_id) {
+          // Admin/staff can only see their assigned parlor
+          parlorQuery = parlorQuery.eq('id', profile.parlor_id);
+          console.log('Admin/staff - showing assigned parlor only:', profile.parlor_id);
+        } else {
+          setError('You are not assigned to any parlor. Please contact an administrator.');
+          return;
+        }
+
+        const { data: parlorData, error: parlorError } = await parlorQuery;
+        if (parlorError) throw parlorError;
+        
+        setParlors(parlorData ?? []);
       } catch (err: any) {
-        console.error('Error fetching parlors:', err.message || err);
+        console.error('Error fetching data:', err.message || err);
         setError('Could not load parlors. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchParlors();
+    fetchUserAndParlors();
   }, []);
 
   const handleCreateParlor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!parlorForm.name || !parlorForm.slug || !parlorForm.address) {
+    if (!parlorForm.name || !parlorForm.address) {
       return;
     }
 
@@ -81,7 +104,6 @@ const ParlorSelector: React.FC = () => {
         .from('parlors')
         .insert({
           name: parlorForm.name,
-          slug: parlorForm.slug,
           address: parlorForm.address
         })
         .select()
@@ -92,7 +114,7 @@ const ParlorSelector: React.FC = () => {
       if (data) {
         setParlors(prev => [...prev, data]);
         setIsModalOpen(false);
-        setParlorForm({ name: '', slug: '', address: '' });
+        setParlorForm({ name: '', address: '' });
       }
     } catch (err: any) {
       console.error('Error creating parlor:', err.message);
@@ -106,7 +128,6 @@ const ParlorSelector: React.FC = () => {
     setSelectedParlor(parlor);
     setParlorForm({
       name: parlor.name,
-      slug: parlor.slug,
       address: parlor.address
     });
     setIsEditModalOpen(true);
@@ -114,7 +135,7 @@ const ParlorSelector: React.FC = () => {
 
   const handleUpdateParlor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedParlor || !parlorForm.name || !parlorForm.slug || !parlorForm.address) {
+    if (!selectedParlor || !parlorForm.name || !parlorForm.address) {
       return;
     }
 
@@ -124,7 +145,6 @@ const ParlorSelector: React.FC = () => {
         .from('parlors')
         .update({
           name: parlorForm.name,
-          slug: parlorForm.slug,
           address: parlorForm.address
         })
         .eq('id', selectedParlor.id)
@@ -136,7 +156,7 @@ const ParlorSelector: React.FC = () => {
       if (data) {
         setParlors(prev => prev.map(p => p.id === data.id ? data : p));
         setIsEditModalOpen(false);
-        setParlorForm({ name: '', slug: '', address: '' });
+        setParlorForm({ name: '', address: '' });
         setSelectedParlor(null);
       }
     } catch (err: any) {
@@ -222,47 +242,54 @@ const ParlorSelector: React.FC = () => {
                 >
                   <div 
                     className="flex items-center flex-1 cursor-pointer"
-                    onClick={() => navigate(`/${parlor.slug}/dashboard`)}
+                    onClick={() => navigate(`/${parlor.id}/dashboard`)}
                   >
                     <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
                       <Building className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 flex-1">
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white">{parlor.name}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{parlor.address}</p>
+                      {parlor.contact_phone && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500">📞 {parlor.contact_phone}</p>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditParlor(parlor);
-                      }}
-                      className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                      title="Edit parlor"
-                    >
-                      <Edit2 className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteParlor(parlor.id);
-                      }}
-                      className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      title="Delete parlor"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
+                  {userProfile?.role === 'super_admin' && (
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditParlor(parlor);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="Edit parlor"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteParlor(parlor.id);
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Delete parlor"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-            <button
-              className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              onClick={() => setIsModalOpen(true)}
-            >
-              + Create New Parlor
-            </button>
+            {userProfile?.role === 'super_admin' && (
+              <button
+                className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                onClick={() => setIsModalOpen(true)}
+              >
+                + Create New Parlor
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -276,7 +303,7 @@ const ParlorSelector: React.FC = () => {
               <button onClick={() => {
                 setIsEditModalOpen(false);
                 setSelectedParlor(null);
-                setParlorForm({ name: '', slug: '', address: '' });
+                setParlorForm({ name: '', address: '' });
               }} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
             </div>
             <form onSubmit={handleUpdateParlor} className="space-y-4">
@@ -289,17 +316,6 @@ const ParlorSelector: React.FC = () => {
                   placeholder="e.g. Peaceful Rest Funeral Home" 
                   required 
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Slug (URL identifier)</label>
-                <input 
-                  value={parlorForm.slug} 
-                  onChange={(e) => setParlorForm({ ...parlorForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} 
-                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
-                  placeholder="e.g. peaceful-rest" 
-                  required 
-                />
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">This will be used in the URL: /{parlorForm.slug || 'your-slug'}/dashboard</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Address</label>
@@ -318,7 +334,7 @@ const ParlorSelector: React.FC = () => {
                   onClick={() => {
                     setIsEditModalOpen(false);
                     setSelectedParlor(null);
-                    setParlorForm({ name: '', slug: '', address: '' });
+                    setParlorForm({ name: '', address: '' });
                   }} 
                   className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700"
                   disabled={isSubmitting}
@@ -356,17 +372,6 @@ const ParlorSelector: React.FC = () => {
                   placeholder="e.g. Peaceful Rest Funeral Home" 
                   required 
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Slug (URL identifier)</label>
-                <input 
-                  value={parlorForm.slug} 
-                  onChange={(e) => setParlorForm({ ...parlorForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} 
-                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
-                  placeholder="e.g. peaceful-rest" 
-                  required 
-                />
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">This will be used in the URL: /{parlorForm.slug || 'your-slug'}/dashboard</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Address</label>

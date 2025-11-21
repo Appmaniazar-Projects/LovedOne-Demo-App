@@ -1,17 +1,17 @@
 // src/components/Clients/AddClientModal.tsx
 import React, { useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../../supabaseClient';
+import { supabase } from '../../supabaseClient';
 import { Client } from './Clients'; // Assuming Client interface is exported from Clients.tsx
 import { toast } from 'react-hot-toast';
-import { addMockClient } from '../../data/mockClients';
 
 interface AddClientModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClientAdded: (newClient: Client) => void;
+  parlorId: string; // Required parlor ID
 }
 
-const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClientAdded }) => {
+const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClientAdded, parlorId }) => {
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('');
   const [email, setEmail] = useState('');
@@ -28,77 +28,32 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
 
     try {
       console.log('Adding new client...');
-      console.log('Form data:', { name, relationship, email, phone, address, culturalPreferences });
+      console.log('Form data:', { name, relationship, email, phone, address, culturalPreferences, parlorId });
       
-      // Check if Supabase is configured
-      if (!isSupabaseConfigured()) {
-        console.log('Supabase not configured, creating mock client with persistence');
-        // Create mock client if Supabase is not configured
-        const newClient = addMockClient({
-          name,
-          relationship,
-          email,
-          phone,
-          address,
-          cultural_preferences: culturalPreferences,
-          profile_picture_url: null,
-          user_id: 'mock-user',
-        });
-        
-        console.log('Mock client created and saved:', newClient);
-        // Also ensure cached list updated
-        try {
-          const raw = localStorage.getItem('lovedone_mock_clients');
-          const arr = raw ? JSON.parse(raw) : [];
-          localStorage.setItem('lovedone_mock_clients', JSON.stringify([...arr, newClient]));
-        } catch {}
-        toast.success('Client added successfully!');
-        onClientAdded(newClient);
-        
-        // Reset form
-        setName('');
-        setRelationship('');
-        setEmail('');
-        setPhone('');
-        setAddress('');
-        setCulturalPreferences('');
-        onClose();
-        return;
+      if (!parlorId) {
+        throw new Error('Parlor ID is required to create a client');
       }
 
-      console.log('Supabase is configured, proceeding with real database');
-      
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       console.log('Current user:', user);
       
       if (!user) {
-        console.log('No user logged in, creating mock client with persistence');
-        // Create mock client if no user is logged in
-        const newClient = addMockClient({
-          name,
-          relationship,
-          email,
-          phone,
-          address,
-          cultural_preferences: culturalPreferences,
-          profile_picture_url: null,
-          user_id: 'mock-user',
-        });
-        
-        console.log('Mock client created and saved:', newClient);
-        toast.success('Client added successfully!');
-        onClientAdded(newClient);
-        
-        // Reset form
-        setName('');
-        setRelationship('');
-        setEmail('');
-        setPhone('');
-        setAddress('');
-        setCulturalPreferences('');
-        onClose();
-        return;
+        throw new Error('You must be logged in to create a client');
+      }
+      
+      // Check if user has a profile (required for RLS policy)
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role, full_name')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('User profile:', userProfile);
+      console.log('Profile error:', profileError);
+      
+      if (!userProfile) {
+        throw new Error('User profile not found. Please contact an administrator to set up your profile.');
       }
       
       const { data, error } = await supabase
@@ -111,6 +66,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
           address,
           cultural_preferences: culturalPreferences,
           user_id: user.id, // Assign client to current user
+          parlor_id: parlorId, // Required for RLS policy compliance
         })
         .select()
         .single();
@@ -123,26 +79,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
       if (data) {
         console.log('Client added successfully:', data);
         toast.success('Client added successfully!');
-        // Ensure local cache also has this client so navigation back still shows it
-        try {
-          const raw = localStorage.getItem('lovedone_mock_clients');
-          const arr = raw ? JSON.parse(raw) : [];
-          const cacheClient = {
-            id: data.id,
-            name: data.name,
-            relationship: data.relationship || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            address: data.address || '',
-            cultural_preferences: data.cultural_preferences || '',
-            profile_picture_url: data.profile_picture_url || null,
-            user_id: data.user_id || 'mock-user',
-            created_at: (data.created_at || new Date().toISOString()),
-            document_count: 0
-          };
-          localStorage.setItem('lovedone_mock_clients', JSON.stringify([...arr, cacheClient]));
-        } catch {}
-        onClientAdded(data as any);
+        onClientAdded(data as Client);
         // Reset form
         setName('');
         setRelationship('');

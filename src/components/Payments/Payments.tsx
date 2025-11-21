@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Plus, Filter, Search, CreditCard, TrendingUp, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Plus, Search, CreditCard, TrendingUp, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import RequestPaymentModal from './RequestPaymentModal';
 import ViewPaymentModal from './ViewPaymentModal';
 import { supabase } from '../../supabaseClient';

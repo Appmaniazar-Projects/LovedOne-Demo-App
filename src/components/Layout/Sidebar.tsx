@@ -18,26 +18,28 @@ import { supabase } from '../../supabaseClient';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface SidebarProps {
-  parlorSlug: string;
+  parlorName: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ parlorSlug }) => {
+const Sidebar: React.FC<SidebarProps> = ({ parlorName }) => {
   const [, setUser] = useState<any>(null);
   const [, setLoading] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { theme } = useTheme();
   const location = useLocation();
 
+  const encodedParlorName = encodeURIComponent(parlorName);
+
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${parlorSlug}/dashboard` },
-    { id: 'clients', label: 'Clients', icon: Users, path: `/${parlorSlug}/clients` },
-    { id: 'cases', label: 'Cases', icon: FileText, path: `/${parlorSlug}/cases` },
-    { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${parlorSlug}/payments` },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, path: `/${parlorSlug}/tasks` },
-    { id: 'services', label: 'Services', icon: Calendar, path: `/${parlorSlug}/services` },
-    { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${parlorSlug}/reports` },
-    { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${parlorSlug}/notifications` },
-    { id: 'settings', label: 'Settings', icon: Settings, path: `/${parlorSlug}/settings` },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${encodedParlorName}/dashboard` },
+    { id: 'clients', label: 'Clients', icon: Users, path: `/${encodedParlorName}/clients` },
+    { id: 'cases', label: 'Cases', icon: FileText, path: `/${encodedParlorName}/cases` },
+    { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${encodedParlorName}/payments` },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, path: `/${encodedParlorName}/tasks` },
+    { id: 'services', label: 'Services', icon: Calendar, path: `/${encodedParlorName}/services` },
+    { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${encodedParlorName}/reports` },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${encodedParlorName}/notifications` },
+    { id: 'settings', label: 'Settings', icon: Settings, path: `/${encodedParlorName}/settings` },
   ];
 
   useEffect(() => {
