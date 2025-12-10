@@ -1,14 +1,14 @@
 // src/components/Clients/AddClientModal.tsx
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Client } from './Clients'; // Assuming Client interface is exported from Clients.tsx
+import { Client } from './Clients';
 import { toast } from 'react-hot-toast';
 
 interface AddClientModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClientAdded: (newClient: Client) => void;
-  parlorId: string; // Required parlor ID
+  parlorId: string;
 }
 
 const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClientAdded, parlorId }) => {
@@ -42,9 +42,9 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
         throw new Error('You must be logged in to create a client');
       }
       
-      // Check if user has a profile (required for RLS policy)
+      // Check if user has a profile in users table
       const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id, role, full_name')
         .eq('id', user.id)
         .single();
@@ -65,8 +65,8 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
           phone,
           address,
           cultural_preferences: culturalPreferences,
-          user_id: user.id, // Assign client to current user
-          parlor_id: parlorId, // Required for RLS policy compliance
+          user_id: user.id,
+          parlor_id: parlorId,
         })
         .select()
         .single();
@@ -87,7 +87,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose, onClie
         setPhone('');
         setAddress('');
         setCulturalPreferences('');
-        onClose(); // Close modal on success
+        onClose();
       }
     } catch (err: any) {
       console.error('Error in handleSubmit:', err);

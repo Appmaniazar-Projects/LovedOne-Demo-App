@@ -74,7 +74,8 @@ const Dashboard: React.FC = () => {
 
         if (profile) {
           console.log('User profile:', profile);
-          setUserProfile(profile);
+          const displayName = profile.full_name || (user.user_metadata && user.user_metadata.full_name) || user.email || 'User';
+          setUserProfile({ role: profile.role, full_name: displayName });
 
           // Fetch clients based on role
           let countQuery = supabase.from('clients').select('*', { count: 'exact', head: true });

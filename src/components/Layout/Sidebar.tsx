@@ -9,19 +9,20 @@ import {
   Calendar,
   BarChart3,
   Bell,
-  Settings,
-  Heart
+  Settings
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useTheme } from '../../contexts/ThemeContext';
+import LovedOneLogo from '../../assets/LovedOne_dashboard.png';
 
 interface SidebarProps {
+  parlorId: string;
   parlorName: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ parlorName }) => {
-  const [, setUser] = useState<any>(null);
-  const [, setLoading] = useState(true);
+const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName }) => {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
   const location = useLocation();
 
@@ -41,23 +42,34 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorName }) => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data) {
-        setUser(data.user);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        // Fetch user profile from the users table
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .eq('parlor_id', parlorId)
+          .single();
+        
+        setUser({ ...authUser, ...userProfile });
       }
       setLoading(false);
     };
+
     fetchUser();
-  }, []);
+  }, [parlorId]);
 
   return (
-    <div className={`w-64 bg-${theme === 'dark' ? 'slate-900' : 'white'} text-${theme === 'dark' ? 'white' : 'slate-900'} h-full flex flex-col border-r border-slate-200 dark:border-slate-700 animate-slideInLeft transition-all duration-300 relative`}>
+    <div className="w-64 bg-white dark:bg-slate-900 text-slate-900 dark:text-white h-full flex flex-col border-r border-slate-200 dark:border-slate-700 animate-slideInLeft transition-all duration-300 relative">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-700 animate-fadeIn">
+      <div className="p-6 border-b border-slate-200 dark:border-slate-700 animate-fadeIn">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center animate-pulse-slow">
-            <Heart className="w-6 h-6 animate-heartbeat text-red-500 fill-red-500" />
-          </div>
+          <img
+            src={LovedOneLogo}
+            alt="LovedOne logo"
+            className="w-10 h-10 rounded-lg object-contain"
+          />
           <div>
             <h1 className="text-xl font-bold animate-fadeInUp bg-gradient-to-r from-red-600 via-red-400 to-white bg-clip-text text-transparent hover:scale-110 transition-all duration-300 cursor-pointer animate-pulse-text animate-gradient-shift drop-shadow-lg">
               LovedOne
@@ -80,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorName }) => {
                   className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-left transition-all duration-300 transform hover:scale-105 hover:translate-x-1 ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-lg'
-                      : `text-${theme === 'dark' ? 'slate-300' : 'slate-900'} hover:bg-${theme === 'dark' ? 'slate-800' : 'slate-100'} hover:text-${theme === 'dark' ? 'white' : 'slate-900'}`
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <Icon className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
@@ -93,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorName }) => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-700 dark:border-slate-700 animate-fadeIn animation-delay-500">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-700 animate-fadeIn animation-delay-500">
         <p className="text-sm text-slate-900 dark:text-slate-400 text-center animate-pulse-text">
           &copy; 2025 LovedOne<br />
           Compassionate tech for life's hardest moments

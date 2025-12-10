@@ -1,15 +1,16 @@
 import { Auth } from '@supabase/auth-ui-react'
 import { supabase } from '../../supabaseClient'
-import { Heart } from 'lucide-react';
+import LovedOneLogo from '../../assets/LovedOne_Logo_black.png';
 
 const LoginPage = () => (
   <div className="w-screen h-screen bg-slate-100 flex justify-center items-center">
     <div className="w-full max-w-md p-4 flex flex-col items-center">
       <div className="mb-8 flex flex-col items-center">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4">
-          <Heart className="w-10 h-10 text-white" />
-        </div>
-        <h1 className="text-3xl font-bold text-slate-900">LovedOne</h1>
+        <img
+          src={LovedOneLogo}
+          alt="LovedOne logo"
+          className="w-50 h-50 mb-4 object-contain"
+        />
         <p className="text-slate-600">Modern Funeral Management</p>
       </div>
       <div className="w-full">

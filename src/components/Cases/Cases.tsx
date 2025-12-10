@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Search } from 'lucide-react';
-import { mockDeceasedProfiles, mockClients } from '../../data/mockData';
 import CaseCard from './CaseCard';
 import { DeceasedProfile, Client } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
@@ -11,9 +10,9 @@ const Cases: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
-  const [cases, setCases] = useState<DeceasedProfile[]>(mockDeceasedProfiles);
+  const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const [clients, setClients] = useState<Client[]>([]);
   const [form, setForm] = useState({
     name: '',
     dateOfBirth: '',

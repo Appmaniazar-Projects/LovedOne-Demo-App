@@ -29,7 +29,9 @@ const ParlorSelector: React.FC = () => {
   const [selectedParlor, setSelectedParlor] = useState<Parlor | null>(null);
   const [parlorForm, setParlorForm] = useState({
     name: '',
-    address: ''
+    address: '',
+    contact_email: '',
+    contact_phone: ''
   });
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -104,7 +106,9 @@ const ParlorSelector: React.FC = () => {
         .from('parlors')
         .insert({
           name: parlorForm.name,
-          address: parlorForm.address
+          address: parlorForm.address,
+          contact_email: parlorForm.contact_email || null,
+          contact_phone: parlorForm.contact_phone || null
         })
         .select()
         .single();
@@ -114,7 +118,7 @@ const ParlorSelector: React.FC = () => {
       if (data) {
         setParlors(prev => [...prev, data]);
         setIsModalOpen(false);
-        setParlorForm({ name: '', address: '' });
+        setParlorForm({ name: '', address: '', contact_email: '', contact_phone: '' });
       }
     } catch (err: any) {
       console.error('Error creating parlor:', err.message);
@@ -128,7 +132,9 @@ const ParlorSelector: React.FC = () => {
     setSelectedParlor(parlor);
     setParlorForm({
       name: parlor.name,
-      address: parlor.address
+      address: parlor.address,
+      contact_email: parlor.contact_email || '',
+      contact_phone: parlor.contact_phone || ''
     });
     setIsEditModalOpen(true);
   };
@@ -145,7 +151,9 @@ const ParlorSelector: React.FC = () => {
         .from('parlors')
         .update({
           name: parlorForm.name,
-          address: parlorForm.address
+          address: parlorForm.address,
+          contact_email: parlorForm.contact_email || null,
+          contact_phone: parlorForm.contact_phone || null
         })
         .eq('id', selectedParlor.id)
         .select()
@@ -156,7 +164,7 @@ const ParlorSelector: React.FC = () => {
       if (data) {
         setParlors(prev => prev.map(p => p.id === data.id ? data : p));
         setIsEditModalOpen(false);
-        setParlorForm({ name: '', address: '' });
+        setParlorForm({ name: '', address: '', contact_email: '', contact_phone: '' });
         setSelectedParlor(null);
       }
     } catch (err: any) {
@@ -242,7 +250,7 @@ const ParlorSelector: React.FC = () => {
                 >
                   <div 
                     className="flex items-center flex-1 cursor-pointer"
-                    onClick={() => navigate(`/${parlor.id}/dashboard`)}
+                    onClick={() => navigate(`/${encodeURIComponent(parlor.name)}/dashboard`)}
                   >
                     <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
                       <Building className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -303,7 +311,7 @@ const ParlorSelector: React.FC = () => {
               <button onClick={() => {
                 setIsEditModalOpen(false);
                 setSelectedParlor(null);
-                setParlorForm({ name: '', address: '' });
+                setParlorForm({ name: '', address: '', contact_email: '', contact_phone: '' });
               }} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
             </div>
             <form onSubmit={handleUpdateParlor} className="space-y-4">
@@ -328,13 +336,33 @@ const ParlorSelector: React.FC = () => {
                   required 
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Contact Email</label>
+                <input 
+                  type="email"
+                  value={parlorForm.contact_email}
+                  onChange={(e) => setParlorForm({ ...parlorForm, contact_email: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  placeholder="e.g. info@parlor.co.za" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Contact Phone</label>
+                <input 
+                  type="tel"
+                  value={parlorForm.contact_phone}
+                  onChange={(e) => setParlorForm({ ...parlorForm, contact_phone: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" 
+                  placeholder="e.g. 012 345 6789" 
+                />
+              </div>
               <div className="flex items-center justify-end space-x-2 pt-2">
                 <button 
                   type="button" 
                   onClick={() => {
                     setIsEditModalOpen(false);
                     setSelectedParlor(null);
-                    setParlorForm({ name: '', address: '' });
+                    setParlorForm({ name: '', address: '', contact_email: '', contact_phone: '' });
                   }} 
                   className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700"
                   disabled={isSubmitting}

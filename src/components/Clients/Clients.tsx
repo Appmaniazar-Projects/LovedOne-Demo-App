@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../supabaseClient';
 import AddClientModal from './AddClientModal';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 export interface Client {
   id: string;
@@ -18,9 +19,9 @@ export interface Client {
   document_count?: number;
 }
 
-interface Profile {
+interface UserProfile {
   id: string;
-  role: 'staff' | 'admin' | 'super_admin';
+  role: 'staff' | 'admin' | 'super_admin' | 'viewer';
   full_name: string;
   parlor_id?: string;
 }
@@ -34,8 +35,8 @@ const Clients: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
-  const [staffList, setStaffList] = useState<Profile[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [staffList, setStaffList] = useState<UserProfile[]>([]);
   const [currentParlorId, setCurrentParlorId] = useState<string>('');
   const { parlorName } = useParams<{ parlorName: string }>();
 
@@ -66,7 +67,7 @@ const Clients: React.FC = () => {
 
       try {
         setLoading(true);
-        setError(null); // Clear any previous errors
+        setError(null);
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -76,45 +77,54 @@ const Clients: React.FC = () => {
 
         console.log('Fetching data for user:', user.id);
 
-        // Fetch user profile (with fallback if profiles table doesn't exist)
-        let profile = null;
-        try {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('id, role, full_name, parlor_id')
-            .eq('id', user.id)
-            .single();
-          profile = profileData;
-        } catch (profileError) {
-          console.log('Profiles table may not exist, using default staff role:', profileError);
-          // Create a default profile object if profiles table doesn't exist
-          profile = {
-            id: user.id,
-            role: 'staff' as const,
-            full_name: user.email || 'User'
-          };
+        // Fetch user profile from users table
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .select('id, role, full_name, parlor_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          throw new Error('User profile not found. Please contact an administrator.');
         }
 
-        console.log('User profile:', profile);
+        console.log('User profile:', profileData);
 
-        if (profile) {
-          setUserProfile(profile);
+        if (profileData) {
+          setUserProfile(profileData);
+
+          // Determine which parlor ID to use for filtering
+          let filterParlorId = currentParlorId;
+          
+          // If parlor_id is set in URL (currentParlorId), use it
+          // Otherwise for staff/admin, use their assigned parlor_id
+          if (!filterParlorId && profileData.parlor_id) {
+            filterParlorId = profileData.parlor_id;
+          }
+
+          if (!filterParlorId) {
+            console.warn('No parlor ID available for filtering clients');
+            setClients([]);
+            setLoading(false);
+            return;
+          }
 
           // Fetch clients based on user role and parlor
           let query = supabase.from('clients').select('*');
 
-          if (profile.role === 'staff') {
+          if (profileData.role === 'staff') {
             // Staff can only see their own clients within their parlor
-            query = query.eq('user_id', user.id).eq('parlor_id', currentParlorId);
-          } else if (profile.role === 'admin') {
+            query = query.eq('user_id', user.id).eq('parlor_id', filterParlorId);
+          } else if (profileData.role === 'admin') {
             // Admin can see all clients in their parlor
-            query = query.eq('parlor_id', currentParlorId);
-          } else if (profile.role === 'super_admin') {
-            // Super admin can see all clients in the current parlor (from URL)
-            query = query.eq('parlor_id', currentParlorId);
+            query = query.eq('parlor_id', filterParlorId);
+          } else if (profileData.role === 'super_admin') {
+            // Super admin can see all clients in the current parlor
+            query = query.eq('parlor_id', filterParlorId);
           }
 
-          console.log('Fetching clients with query for role:', profile.role);
+          console.log('Fetching clients with query for role:', profileData.role);
           const { data: clientsData, error: clientsError } = await query;
 
           if (clientsError) {
@@ -126,15 +136,15 @@ const Clients: React.FC = () => {
 
           console.log('Fetched clients data:', clientsData);
 
-          // Fetch document counts for each client (with fallback if client_documents table doesn't exist)
+          // Fetch document counts for each client
           if (clientsData && clientsData.length > 0) {
             const clientsWithDocCounts = await Promise.all(
               clientsData.map(async (client) => {
                 try {
                   const { count } = await supabase
-                    .from('client_documents')
+                    .from('documents')
                     .select('*', { count: 'exact', head: true })
-                    .eq('client_id', client.id);
+                    .eq('case_id', client.id);
                   return { ...client, document_count: count || 0 };
                 } catch (docError) {
                   console.log('Could not fetch document count for client:', client.id, docError);
@@ -144,22 +154,17 @@ const Clients: React.FC = () => {
             );
             setClients(clientsWithDocCounts);
           } else {
-            // No remote clients
             setClients([]);
           }
 
           // If admin/super_admin, fetch staff for assignment
-          if (profile.role === 'admin' || profile.role === 'super_admin') {
-            try {
-              const { data: staffData } = await supabase
-                .from('profiles')
-                .select('id, full_name, role')
-                .eq('role', 'staff');
-              setStaffList(staffData || []);
-            } catch (staffError) {
-              console.log('Could not fetch staff list:', staffError);
-              setStaffList([]);
-            }
+          if (profileData.role === 'admin' || profileData.role === 'super_admin') {
+            const { data: staffData } = await supabase
+              .from('users')
+              .select('id, full_name, role')
+              .eq('role', 'staff')
+              .eq('parlor_id', filterParlorId);
+            setStaffList(staffData || []);
           }
         } else {
           console.log('No profile found for user');
@@ -168,14 +173,14 @@ const Clients: React.FC = () => {
       } catch (error) {
         console.error('Error in fetchData:', error);
         setError(error instanceof Error ? error.message : 'An error occurred');
-        setClients([]); // Set empty array on error
+        setClients([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.pathname]); // Refetch when navigating back to this page
+  }, [location.pathname, parlorName, currentParlorId]);
 
   const handleAssignClient = async (clientId: string, newStaffId: string) => {
     try {
@@ -191,8 +196,11 @@ const Clients: React.FC = () => {
           client.id === clientId ? { ...client, user_id: newStaffId || null } : client
         )
       );
+      
+      toast.success('Client assigned successfully!');
     } catch (error) {
       console.error('Error assigning client:', error);
+      toast.error('Failed to assign client');
     }
   };
 
@@ -342,9 +350,7 @@ const Clients: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                      <option value="" disabled>
-                        Select Staff...
-                      </option>
+                      <option value="">Unassigned</option>
                       {staffList.map((staff) => (
                         <option key={staff.id} value={staff.id}>
                           {staff.full_name}
@@ -366,7 +372,6 @@ const Clients: React.FC = () => {
           parlorId={currentParlorId}
           onClientAdded={(newClient: Client) => {
             console.log('New client added:', newClient);
-            // Add document count to new client
             const clientWithDocCount = { ...newClient, document_count: 0 };
             setClients((prevClients) => {
               return [...prevClients, clientWithDocCount];
