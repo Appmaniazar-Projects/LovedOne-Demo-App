@@ -27,6 +27,8 @@ const ClientDetails: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +80,35 @@ const ClientDetails: React.FC = () => {
       setUploading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setUserRole(null);
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile) {
+          setUserRole(null);
+          return;
+        }
+
+        setUserRole(profile.role as string);
+      } catch {
+        setUserRole(null);
+      }
+    };
+
+    fetchUserRole();
+  }, []);
 
   useEffect(() => {
     const fetchClient = async () => {
@@ -224,6 +255,36 @@ const ClientDetails: React.FC = () => {
     }
   };
 
+  const handleDeleteClient = async () => {
+    if (!id || !client) return;
+    if (deleting) return;
+
+    const confirmed = window.confirm('Are you sure you want to delete this client? This action cannot be undone.');
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const { error: deleteError } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        const message = deleteError.message || 'Failed to delete client';
+        toast.error(message);
+        setDeleting(false);
+        return;
+      }
+
+      toast.success('Client deleted successfully');
+      navigate(-1);
+    } catch (err: any) {
+      const message = err && err.message ? String(err.message) : 'Failed to delete client';
+      toast.error(message);
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
@@ -234,36 +295,47 @@ const ClientDetails: React.FC = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Clients
         </button>
-        {!isEditing ? (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Client
-          </button>
-        ) : (
-          <div className="space-x-2">
+        <div className="flex items-center space-x-2">
+          {!isEditing ? (
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              onClick={() => setIsEditing(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Save className="w-4 h-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Client
             </button>
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditingClient(client ? { ...client } : null);
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4 mr-2 inline" />
+                Cancel
+              </button>
+            </>
+          )}
+          {(userRole === 'admin' || userRole === 'super_admin') && !id?.startsWith('mock-client-') && (
             <button
-              onClick={() => {
-                setIsEditing(false);
-                setEditingClient(client ? { ...client } : null);
-              }}
-              className="ml-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              onClick={handleDeleteClient}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
             >
-              <X className="w-4 h-4 mr-2 inline" />
-              Cancel
+              {deleting ? 'Deleting...' : 'Delete Client'}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">

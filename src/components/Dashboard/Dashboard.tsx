@@ -35,6 +35,9 @@ const Dashboard: React.FC = () => {
     totalRevenue: 0
   });
 
+  const [totalCases, setTotalCases] = useState(0);
+  const [totalTasks, setTotalTasks] = useState(0);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
@@ -61,9 +64,9 @@ const Dashboard: React.FC = () => {
 
         console.log('Logged in user:', user.id);
 
-        // Fetch user profile
+        // Fetch user profile from users table
         const { data: profile, error: profileError } = await supabase
-          .from('profiles')
+          .from('users')
           .select('role, full_name')
           .eq('id', user.id)
           .single();
@@ -77,21 +80,14 @@ const Dashboard: React.FC = () => {
           const displayName = profile.full_name || (user.user_metadata && user.user_metadata.full_name) || user.email || 'User';
           setUserProfile({ role: profile.role, full_name: displayName });
 
-          // Fetch clients based on role
-          let countQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
-          let dataQuery = supabase.from('clients').select('*');
+          // Fetch clients for the whole parlor/company. All roles can see all
+          // clients; role-based restrictions apply only to actions elsewhere
+          // (e.g. delete/assign), not to visibility.
+          console.log('Fetching all clients for dashboard, role:', profile.role);
+          const { count, error: countError } = await supabase
+            .from('clients')
+            .select('*', { count: 'exact', head: true });
 
-          if (profile.role === 'staff') {
-            console.log('Filtering clients for staff user');
-            countQuery = countQuery.eq('user_id', user.id);
-            dataQuery = dataQuery.eq('user_id', user.id);
-          } else {
-            console.log('Fetching all clients (admin/super_admin)');
-          }
-
-          // Get total count
-          const { count, error: countError } = await countQuery;
-          
           if (countError) {
             console.error('Error counting clients:', countError);
           } else {
@@ -99,8 +95,12 @@ const Dashboard: React.FC = () => {
           }
           
           // Get recent clients (limit 5)
-          const { data: clientsData, error: clientsError } = await dataQuery.order('created_at', { ascending: false }).limit(5);
-          
+          const { data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5);
+
           if (clientsError) {
             console.error('Error fetching clients:', clientsError);
             setError(`Failed to load clients: ${clientsError.message}`);
@@ -130,6 +130,28 @@ const Dashboard: React.FC = () => {
               completedPayments: completed,
               totalRevenue: revenue
             });
+          }
+
+          // Fetch total cases
+          const { count: casesCount, error: casesError } = await supabase
+            .from('cases')
+            .select('*', { count: 'exact', head: true });
+
+          if (casesError) {
+            console.error('Error counting cases:', casesError);
+          } else {
+            setTotalCases(casesCount || 0);
+          }
+
+          // Fetch total tasks
+          const { count: tasksCount, error: tasksError } = await supabase
+            .from('tasks')
+            .select('*', { count: 'exact', head: true });
+
+          if (tasksError) {
+            console.error('Error counting tasks:', tasksError);
+          } else {
+            setTotalTasks(tasksCount || 0);
           }
         }
       } catch (err) {
@@ -170,7 +192,12 @@ const Dashboard: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="animate-fadeInUp" style={{ animationDelay: '200ms' }}>
+        <button
+          type="button"
+          onClick={() => navigate(`/${parlorSlug}/clients`)}
+          className="text-left animate-fadeInUp"
+          style={{ animationDelay: '200ms' }}
+        >
           <StatsCard
             title="Total Clients"
             value={totalClients}
@@ -180,30 +207,45 @@ const Dashboard: React.FC = () => {
             color="blue"
             animationDelay={200}
           />
-        </div>
-        <div className="animate-fadeInUp" style={{ animationDelay: '300ms' }}>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/${parlorSlug}/cases`)}
+          className="text-left animate-fadeInUp"
+          style={{ animationDelay: '300ms' }}
+        >
           <StatsCard
             title="Total Cases"
-            value={mockAnalytics.totalCases}
+            value={totalCases}
             icon={FileText}
             change="+12% from last month"
             changeType="increase"
             color="purple"
             animationDelay={300}
           />
-        </div>
-        <div className="animate-fadeInUp" style={{ animationDelay: '400ms' }}>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/${parlorSlug}/tasks`)}
+          className="text-left animate-fadeInUp"
+          style={{ animationDelay: '400ms' }}
+        >
           <StatsCard
-            title="Active Cases"
-            value={mockAnalytics.activeCases}
+            title="Total Tasks"
+            value={totalTasks}
             icon={Clock}
             change="+3 this week"
             changeType="increase"
             color="yellow"
             animationDelay={400}
           />
-        </div>
-        <div className="animate-fadeInUp" style={{ animationDelay: '500ms' }}>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/${parlorSlug}/payments`)}
+          className="text-left animate-fadeInUp"
+          style={{ animationDelay: '500ms' }}
+        >
           <StatsCard
             title="Total Revenue"
             value={formatCurrency(mockAnalytics.totalRevenue)}
@@ -213,7 +255,7 @@ const Dashboard: React.FC = () => {
             color="green"
             animationDelay={500}
           />
-        </div>
+        </button>
       </div>
 
       {/* Charts and Activity */}

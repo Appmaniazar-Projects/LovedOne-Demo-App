@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, User, Flag, Clock } from 'lucide-react';
 import { mockTasks } from '../../data/mockData';
 import { Task } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useParams } from 'react-router-dom';
+import { supabase, isSupabaseConfigured } from '../../supabaseClient';
+import { toast } from 'react-hot-toast';
+
+interface StaffProfile {
+  id: string;
+  full_name: string;
+  role: string;
+  parlor_id?: string | null;
+}
 
 const TaskBoard: React.FC = () => {
   const { theme } = useTheme();
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const { parlorName } = useParams<{ parlorName: string }>();
+  const [currentParlorId, setCurrentParlorId] = useState<string>('');
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -18,6 +30,144 @@ const TaskBoard: React.FC = () => {
     dueDate: '',
     caseId: ''
   });
+  const [staffList, setStaffList] = useState<StaffProfile[]>([]);
+  const [caseOptions, setCaseOptions] = useState<{ id: string; name: string }[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUserRole = async () => {
+      if (!isSupabaseConfigured()) {
+        setUserRole(null);
+        return;
+      }
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('Error fetching user for task board:', userError);
+        setUserRole(null);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('Error fetching user role for task board:', profileError);
+        setUserRole(null);
+        return;
+      }
+
+      setUserRole(profile.role);
+    };
+
+    loadUserRole();
+  }, []);
+
+  useEffect(() => {
+    const fetchParlorId = async () => {
+      if (!isSupabaseConfigured() || !parlorName) return;
+
+      const { data: parlorData, error: parlorError } = await supabase
+        .from('parlors')
+        .select('id')
+        .eq('name', decodeURIComponent(parlorName))
+        .single();
+
+      if (parlorError) {
+        console.error('Error fetching parlor for tasks:', parlorError);
+        return;
+      }
+
+      if (parlorData && parlorData.id !== currentParlorId) {
+        setCurrentParlorId(parlorData.id);
+      }
+    };
+
+    fetchParlorId();
+  }, [parlorName, currentParlorId]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!isSupabaseConfigured()) {
+        setTasks(mockTasks);
+        return;
+      }
+
+      try {
+        // Load tasks from Supabase with cross-branch visibility
+        const { data: taskRows, error: tasksError } = await supabase
+          .from('tasks')
+          .select('id, title, description, type, priority, status, assigned_to, due_date, case_id, parlor_id, created_at, updated_at')
+          .order('created_at', { ascending: false });
+
+        if (tasksError) {
+          console.error('Error loading tasks from Supabase:', tasksError);
+          setTasks(mockTasks);
+        } else {
+          const mapped: Task[] = (taskRows || []).map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description || '',
+            type: row.type,
+            priority: row.priority,
+            status: row.status,
+            assignedTo: row.assigned_to || '',
+            dueDate: row.due_date ? new Date(row.due_date) : new Date(),
+            caseId: row.case_id || '',
+            parlorId: row.parlor_id || undefined,
+            createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+            updatedAt: row.updated_at ? new Date(row.updated_at) : new Date()
+          }));
+          setTasks(mapped);
+        }
+
+        // Load staff for assignment dropdown
+        let staffQuery = supabase
+          .from('users')
+          .select('id, full_name, role, parlor_id')
+          .eq('role', 'staff');
+
+        if (currentParlorId) {
+          staffQuery = staffQuery.eq('parlor_id', currentParlorId);
+        }
+
+        const { data: staffRows, error: staffError } = await staffQuery;
+        if (staffError) {
+          console.error('Error loading staff for tasks:', staffError);
+        } else {
+          setStaffList(staffRows || []);
+        }
+
+        // Load cases for case selection in task form
+        const { data: caseRows, error: casesError } = await supabase
+          .from('cases')
+          .select('id, deceased_name, case_status')
+          .order('created_at', { ascending: false });
+
+        if (casesError) {
+          console.error('Error loading cases for tasks:', casesError);
+        } else {
+          setCaseOptions(
+            (caseRows || []).map((row: any) => ({
+              id: row.id as string,
+              name: (row.deceased_name as string) || 'Unnamed case',
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Unexpected error loading task board data:', err);
+        setTasks(mockTasks);
+      }
+    };
+
+    loadData();
+  }, [currentParlorId]);
+
+  const canManageTasks = userRole === 'admin' || userRole === 'super_admin';
+  const canUpdateStatus = userRole === 'admin' || userRole === 'super_admin' || userRole === 'staff';
 
   const statusColumns = [
     { 
@@ -115,27 +265,98 @@ const TaskBoard: React.FC = () => {
     return new Date(task.dueDate) < new Date() && task.status !== 'completed';
   };
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const isValidUuid = (value: string) => {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  };
+
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskForm.title || !taskForm.assignedTo || !taskForm.dueDate || !taskForm.caseId) {
+    if (isSupabaseConfigured() && !canManageTasks) {
+      toast.error('You do not have permission to create tasks');
       return;
     }
 
-    const newTask: Task = {
+    if (!taskForm.title || !taskForm.dueDate || !taskForm.caseId) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const fallbackTask: Task = {
       id: (tasks.length + 1).toString(),
       title: taskForm.title,
       description: taskForm.description,
       type: taskForm.type,
       priority: taskForm.priority,
       status: taskForm.status,
-      assignedTo: taskForm.assignedTo,
+      assignedTo: taskForm.assignedTo || '',
       dueDate: new Date(taskForm.dueDate),
       caseId: taskForm.caseId,
+      parlorId: currentParlorId || undefined,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    setTasks(prev => [newTask, ...prev]);
+    if (!isSupabaseConfigured()) {
+      setTasks(prev => [fallbackTask, ...prev]);
+      setIsModalOpen(false);
+      setTaskForm({
+        title: '',
+        description: '',
+        type: 'legal',
+        priority: 'medium',
+        status: 'pending',
+        assignedTo: '',
+        dueDate: '',
+        caseId: ''
+      });
+      toast.success('Task added locally');
+      return;
+    }
+
+    if (!currentParlorId) {
+      toast.error('Parlor is not loaded yet. Please try again in a moment.');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert({
+        title: taskForm.title,
+        description: taskForm.description,
+        type: taskForm.type,
+        priority: taskForm.priority,
+        status: taskForm.status,
+        assigned_to: taskForm.assignedTo || null,
+        due_date: taskForm.dueDate,
+        case_id: taskForm.caseId,
+        parlor_id: currentParlorId
+      })
+      .select('id, title, description, type, priority, status, assigned_to, due_date, case_id, parlor_id, created_at, updated_at')
+      .single();
+
+    if (error || !data) {
+      console.error('Error saving task to Supabase, using local fallback:', error);
+      setTasks(prev => [fallbackTask, ...prev]);
+      toast.success('Task added locally (offline mode)');
+    } else {
+      const saved: Task = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        type: data.type,
+        priority: data.priority,
+        status: data.status,
+        assignedTo: data.assigned_to || '',
+        dueDate: data.due_date ? new Date(data.due_date) : new Date(),
+        caseId: data.case_id || '',
+        parlorId: data.parlor_id || undefined,
+        createdAt: data.created_at ? new Date(data.created_at) : new Date(),
+        updatedAt: data.updated_at ? new Date(data.updated_at) : new Date()
+      };
+      setTasks(prev => [saved, ...prev]);
+      toast.success('Task created');
+    }
+
     setIsModalOpen(false);
     setTaskForm({
       title: '',
@@ -149,11 +370,56 @@ const TaskBoard: React.FC = () => {
     });
   };
 
+  const handleStatusChange = async (
+    taskId: string,
+    previousStatus: Task['status'],
+    newStatus: Task['status']
+  ) => {
+    if (!canUpdateStatus) {
+      toast.error('You do not have permission to update task status');
+      return;
+    }
+
+    setTasks(prev =>
+      prev.map(task =>
+        task.id === taskId ? { ...task, status: newStatus, updatedAt: new Date() } : task
+      )
+    );
+
+    // Only attempt Supabase update when configured and the task has a real UUID id.
+    // This avoids 22P02 errors when working with mock/local tasks that use simple IDs like "1".
+    if (!isSupabaseConfigured() || !isValidUuid(taskId)) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: newStatus })
+      .eq('id', taskId);
+
+    if (error) {
+      console.error('Error updating task status:', error);
+      toast.error('Could not update task status');
+      setTasks(prev =>
+        prev.map(task =>
+          task.id === taskId ? { ...task, status: previousStatus, updatedAt: new Date() } : task
+        )
+      );
+    }
+  };
+
+  const getAssigneeName = (userId: string) => {
+    if (!userId) return 'Unassigned';
+    const staff = staffList.find(s => s.id === userId);
+    return staff?.full_name || userId;
+  };
+
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
     const overdue = isOverdue(task);
     const priorityColor = getPriorityColor(task.priority);
     const typeColor = getTypeColor(task.type);
-    
+    const assigneeName = getAssigneeName(task.assignedTo);
+
     return (
       <div className={`rounded-lg shadow-sm border p-4 hover:shadow-md transition-all ${
         theme === 'dark' 
@@ -183,12 +449,35 @@ const TaskBoard: React.FC = () => {
               {task.type}
             </span>
           </div>
+          {canUpdateStatus && (
+            <div className={`flex items-center space-x-2 text-sm ${
+              theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
+            }`}>
+              <Flag className="w-4 h-4" />
+              <select
+                value={task.status}
+                onChange={(e) =>
+                  handleStatusChange(
+                    task.id,
+                    task.status,
+                    e.target.value as Task['status']
+                  )
+                }
+                className="bg-transparent border border-slate-300 dark:border-gray-600 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="pending">Pending</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </div>
+          )}
           
           <div className={`flex items-center space-x-2 text-sm ${
             theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
           }`}>
             <User className="w-4 h-4" />
-            <span>{task.assignedTo}</span>
+            <span>{assigneeName}</span>
           </div>
           
           <div className={`flex items-center space-x-2 text-sm ${
@@ -213,13 +502,15 @@ const TaskBoard: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Task Board</h1>
           <p className="text-slate-600 dark:text-gray-400">Track and manage workflow tasks</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 w-full md:w-auto justify-center"
-        >
-          <Plus className="w-5 h-5" />
-          <span>New Task</span>
-        </button>
+        {(!isSupabaseConfigured() || canManageTasks) && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 w-full md:w-auto justify-center"
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Task</span>
+          </button>
+        )}
       </div>
 
       {/* Task Stats */}
@@ -291,23 +582,23 @@ const TaskBoard: React.FC = () => {
       {/* New Task Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-lg shadow-2xl w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+          <div className="rounded-lg shadow-2xl w-full max-w-xl bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">New Task</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">New Task</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
             </div>
             <form onSubmit={handleAddTask} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Task Title</label>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Task Title</label>
                   <input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. Obtain death certificate" required />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Description</label>
                   <textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" rows={3} placeholder="Task details..." required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Type</label>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Type</label>
                   <select value={taskForm.type} onChange={(e) => setTaskForm({ ...taskForm, type: e.target.value as Task['type'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
                     <option value="legal">Legal</option>
                     <option value="ceremonial">Ceremonial</option>
@@ -316,7 +607,7 @@ const TaskBoard: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Priority</label>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Priority</label>
                   <select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as Task['priority'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -325,7 +616,7 @@ const TaskBoard: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Status</label>
                   <select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as Task['status'] })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white">
                     <option value="pending">Pending</option>
                     <option value="in-progress">In Progress</option>
@@ -333,20 +624,54 @@ const TaskBoard: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Assigned To</label>
-                  <input value={taskForm.assignedTo} onChange={(e) => setTaskForm({ ...taskForm, assignedTo: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="Person name" required />
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Assigned To</label>
+                  <select
+                    value={taskForm.assignedTo}
+                    onChange={(e) => setTaskForm({ ...taskForm, assignedTo: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white"
+                    disabled={isSupabaseConfigured() && !canManageTasks}
+                  >
+                    <option value="">Unassigned</option>
+                    {staffList.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.full_name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Due Date</label>
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Due Date</label>
                   <input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-400 dark:hover:border-gray-500 transition-all cursor-pointer" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Case ID</label>
-                  <input value={taskForm.caseId} onChange={(e) => setTaskForm({ ...taskForm, caseId: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white" placeholder="e.g. 1" required />
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Case</label>
+                  {isSupabaseConfigured() ? (
+                    <select
+                      value={taskForm.caseId}
+                      onChange={(e) => setTaskForm({ ...taskForm, caseId: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white"
+                      required
+                    >
+                      <option value="">Select case...</option>
+                      {caseOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={taskForm.caseId}
+                      onChange={(e) => setTaskForm({ ...taskForm, caseId: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white"
+                      placeholder="Case ID"
+                      required
+                    />
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-end space-x-2 pt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700">Cancel</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-gray-700">Cancel</button>
                 <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Add Task</button>
               </div>
             </form>

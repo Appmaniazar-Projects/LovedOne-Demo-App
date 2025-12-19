@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { startCheckout } from '@easypaypt/checkout-sdk';
 import { supabase } from '../../supabaseClient'; // Assuming this is the correct path
+import { toast } from 'react-hot-toast';
 
 interface RequestPaymentModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [mode, setMode] = useState<'manual' | 'easypay'>('manual');
   let checkoutInstance: any = null;
 
   useEffect(() => {
@@ -44,31 +46,56 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
     setIsProcessing(true);
 
     try {
-      const manifest = await getCheckoutManifest(parseFloat(amount), description);
-      
-      // Hide the initial form and show the checkout container
-      const form = document.getElementById('request-payment-form');
-      if (form) form.style.display = 'none';
+      const parsedAmount = parseFloat(amount);
+      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        toast.error('Please enter a valid amount.');
+        return;
+      }
+
+      if (mode === 'manual') {
+        const { error } = await supabase
+          .from('payments')
+          .insert({
+            amount: parsedAmount,
+            description,
+            method: 'eft',
+            status: 'pending',
+            transaction_id: null,
+            case_id: null,
+          });
+
+        if (error) {
+          console.error('Failed to create manual payment:', error);
+          toast.error(error.message || 'Failed to create payment request.');
+          return;
+        }
+
+        toast.success('Manual payment request created.');
+        onClose();
+        return;
+      }
+
+      const manifest = await getCheckoutManifest(parsedAmount, description);
 
       checkoutInstance = startCheckout(manifest, {
         id: 'easypay-checkout-form',
-        testing: true, // Use testing mode
+        testing: true,
         onSuccess: (result) => {
           console.log('Payment successful:', result);
-          alert('Payment process completed successfully!');
-          onClose(); // Close the modal on success
+          toast.success('Payment process completed successfully!');
+          onClose();
         },
         onClose: () => {
           console.log('Checkout closed by user.');
-          onClose(); // Close the modal if the user closes the checkout UI
+          onClose();
         }
       });
-
     } catch (error) {
       console.error('Failed to initiate payment:', error);
-      alert('Failed to initiate payment. Please try again.');
+      toast.error('Failed to initiate payment. Please try again.');
+    } finally {
       setIsProcessing(false);
-    } 
+    }
   };
 
   return (
@@ -82,12 +109,27 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
         </button>
 
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900 mb-2">Request Payment</h2>
-          <p className="text-slate-800 dark:text-slate-800 mb-6">Enter payment details to generate a payment request</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Request Payment</h2>
+          <p className="text-slate-800 dark:text-gray-200 mb-6">Enter payment details to generate a payment request</p>
           
           <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">
+              <label htmlFor="mode" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                Payment Type
+              </label>
+              <select
+                id="mode"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as 'manual' | 'easypay')}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+              >
+                <option value="manual">Manual / Offline (no gateway)</option>
+                <option value="easypay">EasyPay (checkout)</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
                 Amount (ZAR)
               </label>
               <input
@@ -104,7 +146,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">
+              <label htmlFor="description" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
                 Description
               </label>
               <textarea
@@ -118,16 +160,17 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
               />
             </div>
 
-            <div id="checkout-container" className="hidden">
-              <p className="text-sm text-slate-800 dark:text-slate-800 mb-4">Complete your payment using the form below:</p>
-              <div id="easypay-checkout" className="w-full"></div>
-            </div>
+            {mode === 'easypay' && (
+              <p className="text-sm text-slate-800 dark:text-gray-200">
+                This will open the EasyPay checkout flow.
+              </p>
+            )}
 
             <div id="form-actions" className="flex justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-slate-900 hover:bg-slate-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
               >
                 Cancel
               </button>

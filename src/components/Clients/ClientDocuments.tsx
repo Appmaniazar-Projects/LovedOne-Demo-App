@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, FileText, Download, Eye, Trash2, AlertCircle, CheckCircle, X } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
 interface ClientDocument {
@@ -70,6 +70,18 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       return;
     }
 
+    // Respect bucket limit (5MB) for this demo
+    const maxBytes = 5 * 1024 * 1024;
+    if (uploadForm.file.size > maxBytes) {
+      toast.error('File is too large. Maximum size is 5MB for this demo.');
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      toast.error('Document upload is not available in this demo environment.');
+      return;
+    }
+
     setUploading(true);
     try {
       // Get current user
@@ -87,9 +99,11 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: publicUrlData } = supabase.storage
         .from('client-documents')
         .getPublicUrl(fileName);
+
+      const publicUrl = publicUrlData.publicUrl;
 
       // Save document metadata to database
       const { error: dbError } = await supabase
@@ -112,7 +126,16 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       fetchDocuments();
     } catch (error: any) {
       console.error('Error uploading document:', error);
-      toast.error(error.message || 'Failed to upload document');
+      const message = (error && error.message) ? String(error.message) : 'Failed to upload document';
+
+      const lower = message.toLowerCase();
+      if (lower.includes('row level security') || lower.includes('rls')) {
+        toast.error('Document upload is not available in this demo environment (permissions).');
+      } else if (lower.includes('storage bucket') || lower.includes('resource was not found')) {
+        toast.error('Document storage is not fully configured. Upload has been disabled for this demo.');
+      } else {
+        toast.error(message);
+      }
     } finally {
       setUploading(false);
     }
@@ -122,14 +145,29 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
     if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
+      if (!isSupabaseConfigured()) {
+        toast.error('Document delete is not available in this demo environment.');
+        return;
+      }
+
       // Extract file path from URL
-      const urlParts = fileUrl.split('/client-documents/');
-      const filePath = urlParts[1];
+      let bucketName = 'documents';
+      let filePath = '';
+
+      if (fileUrl.includes('/documents/')) {
+        const parts = fileUrl.split('/documents/');
+        filePath = parts[1];
+        bucketName = 'documents';
+      } else if (fileUrl.includes('/client-documents/')) {
+        const parts = fileUrl.split('/client-documents/');
+        filePath = parts[1];
+        bucketName = 'client-documents';
+      }
 
       // Delete from storage
       if (filePath) {
         await supabase.storage
-          .from('client-documents')
+          .from(bucketName)
           .remove([filePath]);
       }
 
@@ -350,7 +388,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
                   </label>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)
+                  Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 5MB)
                 </p>
               </div>
 

@@ -95,7 +95,18 @@ const RoleBasedRedirect = () => {
       }
 
       if (profile.role === 'super_admin') {
-        navigate('/select-parlor');
+        const { data: parlors, error: parlorsError } = await supabase
+          .from('parlors')
+          .select('name')
+          .limit(1);
+
+        if (parlorsError || !parlors || parlors.length === 0) {
+          console.error('Error fetching default parlor for super_admin:', parlorsError);
+          await supabase.auth.signOut();
+          return;
+        }
+
+        navigate(`/${encodeURIComponent(parlors[0].name)}/dashboard`);
       } else if (profile.parlor_id) {
         const { data: parlor, error: parlorError } = await supabase
           .from('parlors')

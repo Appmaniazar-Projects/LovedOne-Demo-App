@@ -305,9 +305,9 @@ const ParlorSelector: React.FC = () => {
       {/* Edit Parlor Modal */}
       {isEditModalOpen && selectedParlor && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-lg shadow-2xl w-full max-w-md bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+          <div className="rounded-lg shadow-2xl w-full max-w-md bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">Edit Parlor</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Edit Parlor</h2>
               <button onClick={() => {
                 setIsEditModalOpen(false);
                 setSelectedParlor(null);
@@ -316,7 +316,7 @@ const ParlorSelector: React.FC = () => {
             </div>
             <form onSubmit={handleUpdateParlor} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Parlor Name</label>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Parlor Name</label>
                 <input 
                   value={parlorForm.name} 
                   onChange={(e) => setParlorForm({ ...parlorForm, name: e.target.value })} 
@@ -326,7 +326,7 @@ const ParlorSelector: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Address</label>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Address</label>
                 <textarea 
                   value={parlorForm.address} 
                   onChange={(e) => setParlorForm({ ...parlorForm, address: e.target.value })} 
@@ -337,7 +337,7 @@ const ParlorSelector: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Contact Email</label>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Contact Email</label>
                 <input 
                   type="email"
                   value={parlorForm.contact_email}
@@ -347,7 +347,7 @@ const ParlorSelector: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Contact Phone</label>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Contact Phone</label>
                 <input 
                   type="tel"
                   value={parlorForm.contact_phone}
@@ -385,14 +385,14 @@ const ParlorSelector: React.FC = () => {
       {/* Create Parlor Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-lg shadow-2xl w-full max-w-md bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8">
+          <div className="rounded-lg shadow-2xl w-full max-w-md bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 p-8 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-900">Create New Parlor</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Create New Parlor</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">✕</button>
             </div>
             <form onSubmit={handleCreateParlor} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-slate-900 mb-1">Parlor Name</label>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Parlor Name</label>
                 <input 
                   value={parlorForm.name} 
                   onChange={(e) => setParlorForm({ ...parlorForm, name: e.target.value })} 

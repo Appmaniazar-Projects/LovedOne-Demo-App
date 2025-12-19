@@ -18,10 +18,10 @@ const ProfilePage: React.FC = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // Fetch from profiles table instead of users
+          // Fetch profile from users table
           const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
+            .from('users')
+            .select('full_name, email, role, parlor_id')
             .eq('id', session.user.id)
             .single();
 
@@ -32,7 +32,7 @@ const ProfilePage: React.FC = () => {
             setUser(profile);
             setFormData({
               full_name: profile.full_name || '',
-              email: session.user.email || ''
+              email: profile.email || session.user.email || ''
             });
           }
         }
@@ -69,9 +69,9 @@ const ProfilePage: React.FC = () => {
         return;
       }
 
-      // Update profile in profiles table
+      // Update profile in users table
       const { error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .update({
           full_name: formData.full_name.trim()
         })
@@ -102,7 +102,7 @@ const ProfilePage: React.FC = () => {
   const handleCancel = () => {
     setFormData({
       full_name: user?.full_name || '',
-      email: user?.email || ''
+      email: user?.email || formData.email
     });
     setIsEditing(false);
   };

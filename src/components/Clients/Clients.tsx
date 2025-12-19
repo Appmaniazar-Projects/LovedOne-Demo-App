@@ -94,38 +94,19 @@ const Clients: React.FC = () => {
         if (profileData) {
           setUserProfile(profileData);
 
-          // Determine which parlor ID to use for filtering
+          // Determine which parlor ID to use when creating/assigning, but
+          // do not use it to limit which clients are visible.
           let filterParlorId = currentParlorId;
-          
-          // If parlor_id is set in URL (currentParlorId), use it
-          // Otherwise for staff/admin, use their assigned parlor_id
           if (!filterParlorId && profileData.parlor_id) {
             filterParlorId = profileData.parlor_id;
           }
 
-          if (!filterParlorId) {
-            console.warn('No parlor ID available for filtering clients');
-            setClients([]);
-            setLoading(false);
-            return;
-          }
-
-          // Fetch clients based on user role and parlor
-          let query = supabase.from('clients').select('*');
-
-          if (profileData.role === 'staff') {
-            // Staff can only see their own clients within their parlor
-            query = query.eq('user_id', user.id).eq('parlor_id', filterParlorId);
-          } else if (profileData.role === 'admin') {
-            // Admin can see all clients in their parlor
-            query = query.eq('parlor_id', filterParlorId);
-          } else if (profileData.role === 'super_admin') {
-            // Super admin can see all clients in the current parlor
-            query = query.eq('parlor_id', filterParlorId);
-          }
-
-          console.log('Fetching clients with query for role:', profileData.role);
-          const { data: clientsData, error: clientsError } = await query;
+          // Fetch all clients for this company/parlor; visibility is controlled
+          // by role on actions (delete/assign), not by parlor-based filters.
+          console.log('Fetching all clients for role:', profileData.role);
+          const { data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('*');
 
           if (clientsError) {
             console.error('Error fetching clients:', clientsError);
@@ -141,10 +122,16 @@ const Clients: React.FC = () => {
             const clientsWithDocCounts = await Promise.all(
               clientsData.map(async (client) => {
                 try {
-                  const { count } = await supabase
-                    .from('documents')
+                  const { count, error: countError } = await supabase
+                    .from('client_documents')
                     .select('*', { count: 'exact', head: true })
-                    .eq('case_id', client.id);
+                    .eq('client_id', client.id);
+
+                  if (countError) {
+                    console.log('Could not fetch document count for client:', client.id, countError);
+                    return { ...client, document_count: 0 };
+                  }
+
                   return { ...client, document_count: count || 0 };
                 } catch (docError) {
                   console.log('Could not fetch document count for client:', client.id, docError);
@@ -157,13 +144,19 @@ const Clients: React.FC = () => {
             setClients([]);
           }
 
-          // If admin/super_admin, fetch staff for assignment
+          // If admin/super_admin, fetch staff for assignment, optionally scoped
+          // to the same parlor when a parlor ID is available.
           if (profileData.role === 'admin' || profileData.role === 'super_admin') {
-            const { data: staffData } = await supabase
+            let staffQuery = supabase
               .from('users')
               .select('id, full_name, role')
-              .eq('role', 'staff')
-              .eq('parlor_id', filterParlorId);
+              .eq('role', 'staff');
+
+            if (filterParlorId) {
+              staffQuery = staffQuery.eq('parlor_id', filterParlorId);
+            }
+
+            const { data: staffData } = await staffQuery;
             setStaffList(staffData || []);
           }
         } else {

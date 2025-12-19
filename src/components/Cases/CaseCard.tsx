@@ -27,11 +27,24 @@ const CaseCard: React.FC<CaseCardProps> = ({ case: caseData, onClick }) => {
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-4">
-          <img
-            src={caseData.picture || 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop'}
-            alt={caseData.name}
-            className="w-16 h-16 rounded-lg object-cover transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
-          />
+          {caseData.picture ? (
+            <img
+              src={caseData.picture}
+              alt={caseData.name}
+              className="w-16 h-16 rounded-lg object-cover transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-lg bg-slate-200 dark:bg-gray-700 flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
+              <span className="text-slate-700 dark:text-gray-200 font-semibold">
+                {caseData.name
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map(part => part[0]?.toUpperCase())
+                  .join('') || 'NA'}
+              </span>
+            </div>
+          )}
           <div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{caseData.name}</h3>
             <p className="text-sm text-slate-600 dark:text-gray-300">

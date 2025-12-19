@@ -29,7 +29,7 @@ const Payments: React.FC = () => {
     // Create a receipt/invoice content
     const receiptContent = `
 PAYMENT RECEIPT
-================================================================================
+=================================================================================
 
 Receipt ID: ${payment.id}
 Transaction ID: ${payment.transactionId || 'N/A'}
@@ -49,9 +49,9 @@ Description: ${payment.description}
 Amount: ${formatCurrency(payment.amount)}
 Payment Method: ${payment.method.toUpperCase()}
 Status: ${payment.status.toUpperCase()}
-Case ID: ${payment.caseId}
+Case ID: ${payment.caseId || 'N/A'}
 
-================================================================================
+=================================================================================
 
 Thank you for your payment.
 
@@ -312,7 +312,7 @@ Generated on: ${new Date().toLocaleString('en-US')}
                         {payment.description}
                       </div>
                       <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} transition-all duration-300 group-hover:text-blue-500 dark:group-hover:text-blue-300`}>
-                        {payment.transactionId}
+                        {payment.transactionId || '—'}
                       </div>
                     </div>
                   </td>

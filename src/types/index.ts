@@ -6,6 +6,7 @@ export interface Client {
   address: string;
   relationship: string;
   culturalPreferences?: string;
+  profilePictureUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,9 +18,11 @@ export interface DeceasedProfile {
   dateOfDeath: Date;
   picture?: string;
   serviceType: 'burial' | 'cremation' | 'memorial';
+  serviceTypeId?: string | null;
   status: 'quote' | 'ongoing' | 'closed';
   assignedDirector: string;
-  clientId: string;
+  clientId?: string;
+  planId?: string | null;
   culturalRequirements?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -32,9 +35,10 @@ export interface Task {
   type: 'legal' | 'ceremonial' | 'burial' | 'cremation';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'pending' | 'in-progress' | 'completed' | 'overdue';
-  assignedTo: string;
+  assignedTo: string;   // will hold users.id
   dueDate: Date;
   caseId: string;
+  parlorId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,7 +49,7 @@ export interface Payment {
   method: 'eft' | 'easypay' | 'snapscan' | 'card';
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   transactionId?: string;
-  caseId: string;
+  caseId?: string | null;
   description: string;
   createdAt: Date;
   updatedAt: Date;
