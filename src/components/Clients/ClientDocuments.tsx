@@ -3,6 +3,17 @@ import { Upload, FileText, Download, Eye, Trash2, AlertCircle, CheckCircle, X } 
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
+ const STORAGE_BUCKET = 'clients';
+ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+ const ALLOWED_MIME_TYPES = new Set([
+   'application/pdf',
+   'application/msword',
+   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+   'image/jpeg',
+   'image/png'
+ ]);
+ const ALLOWED_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']);
+
 interface ClientDocument {
   id: string;
   client_id: string;
@@ -31,6 +42,7 @@ const REQUIRED_DOCUMENTS = [
 
 const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName }) => {
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -54,10 +66,40 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
         .order('uploaded_at', { ascending: false });
 
       if (error) throw error;
-      setDocuments(data || []);
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      toast.error('Failed to load documents');
+      const docs = (data || []) as ClientDocument[];
+      setDocuments(docs);
+
+      if (!isSupabaseConfigured()) {
+        setSignedUrls({});
+        return;
+      }
+
+      const nextSigned: Record<string, string> = {};
+      for (const doc of docs) {
+        const isProbablyUrl = /^https?:\/\//i.test(doc.file_url);
+        if (isProbablyUrl) continue;
+
+        const { data: signedData, error: signedErr } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUrl(doc.file_url, 60 * 60);
+
+        if (!signedErr && signedData?.signedUrl) {
+          nextSigned[doc.id] = signedData.signedUrl;
+        }
+      }
+      setSignedUrls(nextSigned);
+    } catch (error: any) {
+      console.error('Error fetching documents:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        status: error?.status,
+        raw: error
+      });
+
+      const message = (error && error.message) ? String(error.message) : 'Failed to load documents';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -70,10 +112,16 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       return;
     }
 
-    // Respect bucket limit (5MB) for this demo
-    const maxBytes = 5 * 1024 * 1024;
-    if (uploadForm.file.size > maxBytes) {
-      toast.error('File is too large. Maximum size is 5MB for this demo.');
+    if (uploadForm.file.size > MAX_UPLOAD_BYTES) {
+      toast.error('File is too large. Maximum size is 5MB.');
+      return;
+    }
+
+    const fileExt = uploadForm.file.name.split('.').pop()?.toLowerCase() || '';
+    const hasAllowedExtension = fileExt ? ALLOWED_EXTENSIONS.has(fileExt) : false;
+    const hasAllowedMime = uploadForm.file.type ? ALLOWED_MIME_TYPES.has(uploadForm.file.type) : false;
+    if (!hasAllowedExtension && !hasAllowedMime) {
+      toast.error('Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG.');
       return;
     }
 
@@ -89,21 +137,16 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       if (!user) throw new Error('Not authenticated');
 
       // Upload file to Supabase Storage
-      const fileExt = uploadForm.file.name.split('.').pop();
       const fileName = `${clientId}/${uploadForm.document_type}_${Date.now()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
-        .from('client-documents')
-        .upload(fileName, uploadForm.file);
+        .from(STORAGE_BUCKET)
+        .upload(fileName, uploadForm.file, {
+          contentType: uploadForm.file.type || undefined,
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('client-documents')
-        .getPublicUrl(fileName);
-
-      const publicUrl = publicUrlData.publicUrl;
 
       // Save document metadata to database
       const { error: dbError } = await supabase
@@ -112,7 +155,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
           client_id: clientId,
           document_type: uploadForm.document_type,
           file_name: uploadForm.file.name,
-          file_url: publicUrl,
+          file_url: fileName,
           file_size: uploadForm.file.size,
           uploaded_by: user.id,
           notes: uploadForm.notes
@@ -125,7 +168,16 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       setUploadForm({ document_type: 'id_document', file: null, notes: '' });
       fetchDocuments();
     } catch (error: any) {
-      console.error('Error uploading document:', error);
+      console.error('Error uploading document:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        status: error?.status,
+        statusCode: error?.statusCode,
+        raw: error
+      });
+
       const message = (error && error.message) ? String(error.message) : 'Failed to upload document';
 
       const lower = message.toLowerCase();
@@ -133,6 +185,8 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
         toast.error('Document upload is not available in this demo environment (permissions).');
       } else if (lower.includes('storage bucket') || lower.includes('resource was not found')) {
         toast.error('Document storage is not fully configured. Upload has been disabled for this demo.');
+      } else if (lower.includes('bucket not found')) {
+        toast.error('Storage bucket "clients" was not found. Create it in Supabase Storage.');
       } else {
         toast.error(message);
       }
@@ -151,17 +205,33 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       }
 
       // Extract file path from URL
-      let bucketName = 'documents';
+      let bucketName = '';
       let filePath = '';
 
-      if (fileUrl.includes('/documents/')) {
-        const parts = fileUrl.split('/documents/');
-        filePath = parts[1];
-        bucketName = 'documents';
-      } else if (fileUrl.includes('/client-documents/')) {
-        const parts = fileUrl.split('/client-documents/');
-        filePath = parts[1];
+      const tryExtract = (bucket: string) => {
+        const marker = `/object/public/${bucket}/`;
+        if (fileUrl.includes(marker)) return fileUrl.split(marker)[1];
+        if (fileUrl.includes(`/${bucket}/`)) return fileUrl.split(`/${bucket}/`)[1];
+        return '';
+      };
+
+      const isProbablyUrl = /^https?:\/\//i.test(fileUrl);
+      if (!isProbablyUrl) {
+        bucketName = STORAGE_BUCKET;
+        filePath = fileUrl;
+      }
+
+      if (!filePath) {
+        bucketName = STORAGE_BUCKET;
+        filePath = tryExtract(STORAGE_BUCKET);
+      }
+      if (!filePath) {
         bucketName = 'client-documents';
+        filePath = tryExtract('client-documents');
+      }
+      if (!filePath) {
+        bucketName = 'documents';
+        filePath = tryExtract('documents');
       }
 
       // Delete from storage
@@ -185,6 +255,12 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
       console.error('Error deleting document:', error);
       toast.error(error.message || 'Failed to delete document');
     }
+  };
+
+  const getDocumentHref = (doc: ClientDocument) => {
+    const isProbablyUrl = /^https?:\/\//i.test(doc.file_url);
+    if (isProbablyUrl) return doc.file_url;
+    return signedUrls[doc.id] || '';
   };
 
   const formatFileSize = (bytes: number) => {
@@ -302,7 +378,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
                 </div>
                 <div className="flex items-center space-x-2 ml-4">
                   <a
-                    href={doc.file_url}
+                    href={getDocumentHref(doc) || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -311,7 +387,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName 
                     <Eye className="w-5 h-5" />
                   </a>
                   <a
-                    href={doc.file_url}
+                    href={getDocumentHref(doc) || undefined}
                     download
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
                     title="Download document"
