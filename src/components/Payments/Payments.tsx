@@ -6,9 +6,12 @@ import { supabase } from '../../supabaseClient';
 import { Payment } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCountUp } from '../../hooks/useCountUp';
+import { useParams } from 'react-router-dom';
 
 const Payments: React.FC = () => {
   const { theme } = useTheme();
+  const { parlorName } = useParams<{ parlorName: string }>();
+  const [currentParlorId, setCurrentParlorId] = useState<string>('');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +22,29 @@ const Payments: React.FC = () => {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+
+  useEffect(() => {
+    const fetchParlorId = async () => {
+      if (!parlorName) return;
+
+      const { data: parlorData, error: parlorError } = await supabase
+        .from('parlors')
+        .select('id')
+        .eq('name', decodeURIComponent(parlorName))
+        .single();
+
+      if (parlorError) {
+        console.error('Error fetching parlor for payments:', parlorError);
+        return;
+      }
+
+      if (parlorData?.id) {
+        setCurrentParlorId(parlorData.id);
+      }
+    };
+
+    fetchParlorId();
+  }, [parlorName]);
 
   const handleViewPayment = (payment: Payment) => {
     setSelectedPayment(payment);
@@ -176,7 +202,11 @@ Generated on: ${new Date().toLocaleString('en-US')}
 
   return (
     <div className="p-6 space-y-6 animate-fadeIn">
-      <RequestPaymentModal isOpen={isRequestModalOpen} onClose={() => setIsRequestModalOpen(false)} />
+      <RequestPaymentModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        parlorId={currentParlorId}
+      />
       <ViewPaymentModal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} payment={selectedPayment} />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 animate-fadeInDown">
@@ -185,7 +215,13 @@ Generated on: ${new Date().toLocaleString('en-US')}
           <p className="text-slate-600 dark:text-gray-300">Manage and track all payments</p>
         </div>
         <button
-          onClick={() => setIsRequestModalOpen(true)}
+          onClick={() => {
+            if (!currentParlorId) {
+              return;
+            }
+            setIsRequestModalOpen(true);
+          }}
+          disabled={!currentParlorId}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-all duration-300 hover:scale-105 hover:shadow-lg"
         >
           <Plus className="w-5 h-5" />

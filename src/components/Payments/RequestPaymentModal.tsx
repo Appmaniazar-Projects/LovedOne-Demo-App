@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 interface RequestPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  parlorId: string;
 }
 
 // This function now calls our Supabase Edge Function to securely create a checkout session.
@@ -23,7 +24,7 @@ const getCheckoutManifest = async (amount: number, description: string) => {
   return data;
 };
 
-const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClose }) => {
+const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClose, parlorId }) => {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -46,6 +47,11 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
     setIsProcessing(true);
 
     try {
+       if (!parlorId) {
+         toast.error('Parlor is not loaded yet. Please try again in a moment.');
+         return;
+       }
+
       const parsedAmount = parseFloat(amount);
       if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
         toast.error('Please enter a valid amount.');
@@ -62,6 +68,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             status: 'pending',
             transaction_id: null,
             case_id: null,
+            parlor_id: parlorId,
           });
 
         if (error) {

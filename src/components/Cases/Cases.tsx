@@ -332,6 +332,10 @@ const Cases: React.FC = () => {
 
   const handleAddCase = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSupabaseConfigured() && !currentParlorId) {
+      toast.error('Parlor is not loaded yet. Please try again in a moment.');
+      return;
+    }
     if (!form.name || !form.dateOfBirth || !form.dateOfDeath || !form.assignedDirector || !form.clientId) {
       toast.error('Please fill all required fields');
       return;
@@ -445,6 +449,11 @@ const Cases: React.FC = () => {
       return;
     }
 
+    if (isSupabaseConfigured() && !currentParlorId) {
+      toast.error('Parlor is not loaded yet. Please try again in a moment.');
+      return;
+    }
+
     if (!form.name || !form.dateOfBirth || !form.dateOfDeath || !form.assignedDirector || !form.clientId) {
       toast.error('Please fill all required fields');
       return;
@@ -549,7 +558,17 @@ const Cases: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Cases</h1>
           <p className="text-slate-600 dark:text-gray-300">Manage deceased profiles and service cases</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 hover:scale-105 hover:shadow-lg">
+        <button
+          onClick={() => {
+            if (isSupabaseConfigured() && !currentParlorId) {
+              toast.error('Parlor is not loaded yet. Please try again in a moment.');
+              return;
+            }
+            setIsModalOpen(true);
+          }}
+          disabled={isSupabaseConfigured() && !currentParlorId}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Plus className="w-5 h-5" />
           <span>New Case</span>
         </button>
