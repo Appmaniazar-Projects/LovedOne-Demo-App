@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useTheme } from '../../contexts/ThemeContext';
-import LovedOneLogo from '../../assets/LovedOne_dashboard.png';
+import LovedOneLogoLight from '../../assets/LovedOne_Logo_without-words_black.png';
+import LovedOneLogoDark from '../../assets/LovedOne_dashboard.png';
 
 interface SidebarProps {
   parlorId: string;
@@ -26,18 +27,20 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName }) => {
   const { theme } = useTheme();
   const location = useLocation();
 
-  const encodedParlorName = encodeURIComponent(parlorName);
+  void parlorName;
+  void user;
+  void loading;
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${encodedParlorName}/dashboard` },
-    { id: 'clients', label: 'Clients', icon: Users, path: `/${encodedParlorName}/clients` },
-    { id: 'cases', label: 'Cases', icon: FileText, path: `/${encodedParlorName}/cases` },
-    { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${encodedParlorName}/payments` },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, path: `/${encodedParlorName}/tasks` },
-    { id: 'services', label: 'Services', icon: Calendar, path: `/${encodedParlorName}/services` },
-    { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${encodedParlorName}/reports` },
-    { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${encodedParlorName}/notifications` },
-    { id: 'settings', label: 'Settings', icon: Settings, path: `/${encodedParlorName}/settings` },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${parlorId}/dashboard` },
+    { id: 'clients', label: 'Clients', icon: Users, path: `/${parlorId}/clients` },
+    { id: 'cases', label: 'Cases', icon: FileText, path: `/${parlorId}/cases` },
+    { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${parlorId}/payments` },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, path: `/${parlorId}/tasks` },
+    { id: 'services', label: 'Services', icon: Calendar, path: `/${parlorId}/services` },
+    { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${parlorId}/reports` },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${parlorId}/notifications` },
+    { id: 'settings', label: 'Settings', icon: Settings, path: `/${parlorId}/settings` },
   ];
 
   useEffect(() => {
@@ -66,7 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName }) => {
       <div className="p-6 border-b border-slate-200 dark:border-slate-700 animate-fadeIn">
         <div className="flex items-center space-x-3">
           <img
-            src={LovedOneLogo}
+            src={theme === 'dark' ? LovedOneLogoDark : LovedOneLogoLight}
             alt="LovedOne logo"
             className="w-10 h-10 rounded-lg object-contain"
           />

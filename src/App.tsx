@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
-import { Routes, Route, useParams, Outlet, Navigate, useNavigate, Link } from 'react-router-dom';
+import { Routes, Route, useParams, Outlet, Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AuthRedirect from './components/Auth/AuthRedirect';
 import ParlorSelector from './components/Parlor/ParlorSelector';
@@ -22,47 +22,85 @@ import ClientDetails from './components/Clients/ClientDetails';
 
 const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // The layout for a specific parlor, including sidebar, header, and content
 const ParlorLayout = () => {
-  const { parlorName } = useParams<{ parlorName: string }>();
-  const [parlorId, setParlorId] = useState<string>('');
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [parlorNameState, setParlorName] = useState<string>('');
+  const [resolvedParlorId, setResolvedParlorId] = useState<string>('');
+  const [parlorRouteKey, setParlorRouteKey] = useState<string>('');
 
   useEffect(() => {
     const fetchParlorDetails = async () => {
-      if (!parlorName) return;
-      
-      // Decode the parlor name from URL
-      const decodedParlorName = decodeURIComponent(parlorName);
-      
-      const { data: parlor } = await supabase
-        .from('parlors')
-        .select('id, name')
-        .eq('name', decodedParlorName)
-        .single();
-      
-      if (parlor) {
-        setParlorId(parlor.id);
+      if (!parlorKey) return;
+
+      const isUuid = UUID_RE.test(parlorKey);
+
+      let parlorRes: { data: any; error: any };
+
+      if (isUuid) {
+        parlorRes = await supabase
+          .from('parlors')
+          .select('id, name, slug')
+          .eq('id', parlorKey)
+          .single();
+      } else {
+        parlorRes = await supabase
+          .from('parlors')
+          .select('id, name, slug')
+          .eq('slug', parlorKey)
+          .single();
+
+        if (parlorRes.error) {
+          parlorRes = await supabase
+            .from('parlors')
+            .select('id, name, slug')
+            .ilike('name', parlorKey)
+            .single();
+        }
+      }
+
+      const parlor = parlorRes.data;
+
+      if (!parlorRes.error && parlor?.id && parlor?.name) {
         setParlorName(parlor.name);
+        setResolvedParlorId(parlor.id);
+
+        const nextRouteKey = parlor.slug || parlorKey;
+        setParlorRouteKey(nextRouteKey);
+
+        if (isUuid && parlor.slug) {
+          const prefixRe = new RegExp(`^/${parlorKey}(?=/|$)`);
+          if (prefixRe.test(location.pathname)) {
+            navigate(`${location.pathname.replace(prefixRe, `/${parlor.slug}`)}${location.search}${location.hash}`, { replace: true });
+          }
+        }
+      } else {
+        setParlorName('');
+        setResolvedParlorId('');
+        setParlorRouteKey(parlorKey);
       }
     };
     
     fetchParlorDetails();
-  }, [parlorName]);
+  }, [location.hash, location.pathname, location.search, navigate, parlorKey]);
 
   // Don't render until we have the parlor details
-  if (!parlorId || !parlorNameState) {
+  if (!resolvedParlorId || !parlorNameState) {
     return <div className="flex items-center justify-center h-screen">Loading parlor...</div>;
   }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar parlorId={parlorId} parlorName={parlorNameState} />
+        <Sidebar parlorId={parlorRouteKey || resolvedParlorId} parlorName={parlorNameState} />
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <Header parlorName={parlorNameState} />
           <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-6">
-            <Outlet />
+            <Outlet context={{ parlorId: resolvedParlorId, parlorRouteKey: parlorRouteKey || resolvedParlorId, parlorName: parlorNameState }} />
           </main>
         </div>
       </div>
@@ -94,10 +132,21 @@ const RoleBasedRedirect = () => {
         return;
       }
 
+      const navigateToParlorDashboard = async (id: string) => {
+        const { data: parlor } = await supabase
+          .from('parlors')
+          .select('slug')
+          .eq('id', id)
+          .single();
+
+        const routeKey = parlor?.slug || id;
+        navigate(`/${routeKey}/dashboard`, { replace: true });
+      };
+
       if (profile.role === 'super_admin') {
         const { data: parlors, error: parlorsError } = await supabase
           .from('parlors')
-          .select('name')
+          .select('id')
           .limit(1);
 
         if (parlorsError || !parlors || parlors.length === 0) {
@@ -106,20 +155,9 @@ const RoleBasedRedirect = () => {
           return;
         }
 
-        navigate(`/${encodeURIComponent(parlors[0].name)}/dashboard`);
+        await navigateToParlorDashboard(parlors[0].id);
       } else if (profile.parlor_id) {
-        const { data: parlor, error: parlorError } = await supabase
-          .from('parlors')
-          .select('name')
-          .eq('id', profile.parlor_id)
-          .single();
-
-        if (parlorError) {
-          console.error('Error fetching parlor name:', parlorError);
-          await supabase.auth.signOut();
-        } else {
-          navigate(`/${encodeURIComponent(parlor.name)}/dashboard`);
-        }
+        await navigateToParlorDashboard(profile.parlor_id);
       } else {
         console.error('User has no role or assigned parlor.');
         await supabase.auth.signOut();
@@ -227,7 +265,7 @@ function App() {
       <Route path="/" element={<RoleBasedRedirect />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
       <Route path="/parlors/:id" element={<ParlorDetails />} />
-      <Route path=":parlorName" element={<ParlorLayout />}>
+      <Route path=":parlorId" element={<ParlorLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />

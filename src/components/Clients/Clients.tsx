@@ -3,7 +3,7 @@ import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight, FileText } from '
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../supabaseClient';
 import AddClientModal from './AddClientModal';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 export interface Client {
@@ -30,6 +30,10 @@ const Clients: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme: _ } = useTheme();
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const resolvedParlorId = outlet?.parlorId || '';
+  void parlorKey;
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,30 +42,14 @@ const Clients: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [staffList, setStaffList] = useState<UserProfile[]>([]);
   const [currentParlorId, setCurrentParlorId] = useState<string>('');
-  const { parlorName } = useParams<{ parlorName: string }>();
 
   useEffect(() => {
     const fetchData = async () => {
-      if (parlorName) {
-        console.log('Fetching parlor ID for parlor name:', parlorName);
-        const { data: parlorData, error: parlorError } = await supabase
-          .from('parlors')
-          .select('id')
-          .eq('name', decodeURIComponent(parlorName))
-          .single();
-        
-        if (parlorError) {
-          console.error('Error fetching parlor:', parlorError);
-          setError(`Failed to find parlor: ${parlorName}`);
-        } else if (parlorData) {
-          console.log('Found parlor ID:', parlorData.id);
-          setCurrentParlorId(parlorData.id);
-        } else {
-          console.warn('No parlor found with name:', parlorName);
-          setError(`Parlor not found: ${parlorName}`);
-        }
+      if (resolvedParlorId) {
+        setCurrentParlorId(resolvedParlorId);
       } else {
-        console.warn('No parlor name provided in URL');
+        console.warn('No parlor specified in URL');
+        setCurrentParlorId('');
         setError('No parlor specified in URL');
       }
 
@@ -96,7 +84,7 @@ const Clients: React.FC = () => {
 
           // Determine which parlor ID to use when creating/assigning, but
           // do not use it to limit which clients are visible.
-          let filterParlorId = currentParlorId;
+          let filterParlorId = resolvedParlorId;
           if (!filterParlorId && profileData.parlor_id) {
             filterParlorId = profileData.parlor_id;
           }
@@ -173,7 +161,7 @@ const Clients: React.FC = () => {
     };
 
     fetchData();
-  }, [location.pathname, parlorName, currentParlorId]);
+  }, [location.pathname, resolvedParlorId]);
 
   const handleAssignClient = async (clientId: string, newStaffId: string) => {
     try {

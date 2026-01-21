@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Search } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import CaseCard from './CaseCard';
 import { DeceasedProfile, Client } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
@@ -24,12 +24,16 @@ interface PlanSummary {
 }
 
 const Cases: React.FC = () => {
-  const { parlorName } = useParams<{ parlorName: string }>();
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const resolvedParlorId = outlet?.parlorId || '';
+  void parlorKey;
   const [currentParlorId, setCurrentParlorId] = useState<string>('');
   const LOCAL_STORAGE_KEY = 'lovedone_cases';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
+
   const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<DeceasedProfile | null>(null);
@@ -54,35 +58,16 @@ const Cases: React.FC = () => {
   });
 
   useEffect(() => {
-    const fetchParlorId = async () => {
-      if (!parlorName) {
-        return;
-      }
+    if (resolvedParlorId && resolvedParlorId !== currentParlorId) {
+      setCurrentParlorId(resolvedParlorId);
+    }
+  }, [resolvedParlorId, currentParlorId]);
 
-      const { data: parlorData, error: parlorError } = await supabase
-        .from('parlors')
-        .select('id')
-        .eq('name', decodeURIComponent(parlorName))
-        .single();
-
-      if (parlorError) {
-        console.error('Error fetching parlor:', parlorError);
-        return;
-      }
-
-      if (parlorData && parlorData.id !== currentParlorId) {
-        setCurrentParlorId(parlorData.id);
-      }
-    };
-
-    fetchParlorId();
-  }, [parlorName, currentParlorId]);
-
-  // Load cases from Supabase if configured
   useEffect(() => {
-    // Load service types for this branch
     const loadServiceTypes = async (): Promise<ServiceType[]> => {
       if (!isSupabaseConfigured()) return [] as ServiceType[];
+      if (!currentParlorId) return [] as ServiceType[];
+
       const { data, error } = await supabase
         .from('service_types')
         .select('id, name, description')
@@ -93,12 +78,12 @@ const Cases: React.FC = () => {
         console.error('Failed to load service types:', error);
         return [] as ServiceType[];
       }
+
       setServiceTypes(data || []);
       if (data && data.length > 0) {
         const first = data[0];
         setSelectedServiceTypeId(first.id);
 
-        // Initialise form service type enum based on first service type
         const name = String(first.name || '').toLowerCase();
         let mapped: DeceasedProfile['serviceType'] = 'burial';
         if (name.includes('cremation')) mapped = 'cremation';
@@ -109,16 +94,17 @@ const Cases: React.FC = () => {
       return data || [];
     };
 
-    // Load clients (Supabase -> fallback to mocks already in state)
     const loadClients = async (): Promise<Client[]> => {
       if (!isSupabaseConfigured()) return [] as Client[];
+      if (!currentParlorId) return [] as Client[];
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name, email, phone, address, relationship, cultural_preferences, profile_picture_url, created_at, updated_at')
+        .select('*')
+        .eq('parlor_id', currentParlorId)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn('Failed to load clients from Supabase, using mocks');
+        console.warn('Failed to load clients from Supabase, using mocks', error);
         return [] as Client[];
       }
       const mapped: Client[] = (data || []).map((row: any) => ({
@@ -130,8 +116,8 @@ const Cases: React.FC = () => {
         relationship: row.relationship || '',
         culturalPreferences: row.cultural_preferences || undefined,
         profilePictureUrl: row.profile_picture_url || undefined,
-        createdAt: new Date(row.created_at),
-        updatedAt: new Date(row.updated_at)
+        createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+        updatedAt: row.updated_at ? new Date(row.updated_at) : new Date()
       }));
       setClients(mapped);
 
@@ -220,9 +206,15 @@ const Cases: React.FC = () => {
         return;
       }
 
+      if (!currentParlorId) {
+        setCases([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('cases')
         .select('id, deceased_name, date_of_birth, date_of_death, picture, case_status, assigned_director, client_id, cultural_requirements, created_at, updated_at, parlor_id, service_type_id')
+        .eq('parlor_id', currentParlorId)
         .order('created_at', { ascending: false });
 
       if (error) {

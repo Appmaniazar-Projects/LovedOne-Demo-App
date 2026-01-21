@@ -1,6 +1,110 @@
-// import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.0.0'
-// import { corsHeaders } from '../_shared/cors.ts'
+import { serve } from 'std/http/server.ts';
+import { createClient } from '@supabase/supabase-js';
+
+const corsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+type EasypayGenericNotification = {
+  id?: string;
+  key?: string;
+  type?: string;
+  status?: 'success' | 'failure' | string;
+  messages?: string[];
+  date?: string;
+};
+
+type EasypayTransactionNotification = {
+  id?: string;
+  key?: string;
+  expiration_time?: string;
+  method?: string;
+  transaction?: {
+    id?: string;
+    key?: string;
+    type?: string;
+    date?: string;
+  };
+};
+
+const mapEasypayStatusToPaymentStatus = (
+  status: string | undefined,
+): 'completed' | 'failed' | 'pending' | 'refunded' => {
+  if (!status) return 'pending';
+  const normalized = status.toLowerCase();
+  if (normalized === 'success') return 'completed';
+  if (normalized === 'refunded') return 'refunded';
+  if (normalized === 'failure' || normalized === 'failed') return 'failed';
+  return 'pending';
+};
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
+    });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'Missing Supabase configuration' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const payload = (await req.json()) as EasypayGenericNotification | EasypayTransactionNotification;
+
+    const transactionKey =
+      (payload as EasypayTransactionNotification)?.transaction?.key ??
+      (payload as EasypayGenericNotification)?.key;
+
+    if (!transactionKey) {
+      return new Response(JSON.stringify({ error: 'Missing transaction key' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const status = (payload as EasypayGenericNotification)?.status;
+    const newStatus = mapEasypayStatusToPaymentStatus(status);
+
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const { error } = await supabaseClient
+      .from('payments')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('transaction_id', transactionKey);
+
+    if (error) {
+      return new Response(JSON.stringify({ error: 'Failed to update payment', details: error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
 
 // // The structure of the webhook payload from Easypay
 // interface EasypayWebhookPayload {

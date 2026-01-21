@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Payment } from '../../types';
+import { supabase } from '../../supabaseClient';
+import { toast } from 'react-hot-toast';
 
 interface ViewPaymentModalProps {
   isOpen: boolean;
@@ -9,6 +11,8 @@ interface ViewPaymentModalProps {
 }
 
 const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, payment }) => {
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   if (!isOpen || !payment) return null;
 
   const formatCurrency = (amount: number) => {
@@ -18,7 +22,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateValue: string | Date) => {
     const options: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: 'short',
@@ -26,7 +30,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
       hour: '2-digit',
       minute: '2-digit',
     };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return new Date(dateValue).toLocaleDateString('en-US', options);
   };
 
   const getStatusBadgeColor = (status: string) => {
@@ -37,8 +41,33 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'failed':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'refunded':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    }
+  };
+
+  const updatePaymentStatus = async (nextStatus: Payment['status']) => {
+    if (!payment?.id) return;
+    setIsUpdatingStatus(true);
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', payment.id);
+
+      if (error) {
+        toast.error(error.message || 'Failed to update payment status');
+        return;
+      }
+
+      toast.success('Payment status updated');
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update payment status');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -108,12 +137,41 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
           </div>
           
           <div className="mt-8 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              Close
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+              {payment.status !== 'completed' && (
+                <button
+                  disabled={isUpdatingStatus}
+                  onClick={() => updatePaymentStatus('completed')}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Mark Paid
+                </button>
+              )}
+              {payment.status !== 'failed' && (
+                <button
+                  disabled={isUpdatingStatus}
+                  onClick={() => updatePaymentStatus('failed')}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Mark Failed
+                </button>
+              )}
+              {payment.status !== 'refunded' && (
+                <button
+                  disabled={isUpdatingStatus}
+                  onClick={() => updatePaymentStatus('refunded')}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Mark Refunded
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>

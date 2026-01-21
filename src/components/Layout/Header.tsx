@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { Bell, Search, User, LogOut, Settings, Sun, Moon, Menu } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { mockNotifications } from '../../data/mockData';
 import { supabase } from '../../supabaseClient';
+import { Notification } from '../../types';
 
 interface HeaderProps {
   parlorName: string;
@@ -11,12 +11,18 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const parlorId = outlet?.parlorId || '';
+  const parlorRouteKey = outlet?.parlorRouteKey || parlorKey || '';
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -41,7 +47,161 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
     fetchUserProfile();
   }, []);
 
-  const unreadNotifications = mockNotifications.filter(n => !n.read).length;
+  useEffect(() => {
+    if (!parlorId) {
+      setNotifications([]);
+      return;
+    }
+
+    const getStorageKey = (userId: string | null) => `notifications:${userId || 'anon'}:${parlorId || 'no-parlor'}`;
+
+    const loadPersistedState = (userId: string | null) => {
+      try {
+        const raw = localStorage.getItem(getStorageKey(userId));
+        if (!raw) {
+          return { readIds: new Set<string>(), deletedIds: new Set<string>() };
+        }
+        const parsed = JSON.parse(raw) as { readIds?: string[]; deletedIds?: string[] };
+        return {
+          readIds: new Set<string>(parsed.readIds || []),
+          deletedIds: new Set<string>(parsed.deletedIds || []),
+        };
+      } catch {
+        return { readIds: new Set<string>(), deletedIds: new Set<string>() };
+      }
+    };
+
+    const load = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+
+        const userId = auth?.user?.id ?? null;
+
+        const { readIds, deletedIds } = loadPersistedState(userId);
+
+        const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        const [paymentsRes, tasksRes, casesRes] = await Promise.all([
+          supabase
+            .from('payments')
+            .select('id, amount, status, created_at, case_id')
+            .eq('parlor_id', parlorId)
+            .gte('created_at', weekAgoIso)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('tasks')
+            .select('id, title, status, due_date, created_at, case_id')
+            .eq('parlor_id', parlorId)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('cases')
+            .select('id, deceased_name, case_status, created_at')
+            .eq('parlor_id', parlorId)
+            .gte('created_at', weekAgoIso)
+            .order('created_at', { ascending: false })
+            .limit(10),
+        ]);
+
+        const anyError = paymentsRes.error || tasksRes.error || casesRes.error;
+        if (anyError) {
+          console.error('Failed to load header notifications:', anyError);
+          setNotifications([]);
+          return;
+        }
+
+        const mapped: Notification[] = [];
+
+        (paymentsRes.data || []).forEach((p: any) => {
+          const status = String(p.status || '').toLowerCase();
+          const title = status === 'completed' ? 'Payment Received' : status === 'pending' ? 'Payment Pending' : 'Payment Updated';
+          const id = `payment-${p.id}`;
+          mapped.push({
+            id,
+            title,
+            message: `Payment of ${new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(p.amount || 0))} (${status || 'unknown'})`,
+            type: status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'info',
+            read: readIds.has(id),
+            userId: userId || 'system',
+            caseId: p.case_id || undefined,
+            createdAt: p.created_at ? new Date(p.created_at) : new Date(),
+          });
+        });
+
+        (tasksRes.data || []).forEach((t: any) => {
+          const status = String(t.status || '').toLowerCase();
+          const due = t.due_date ? new Date(t.due_date) : null;
+          const isOverdue = due ? due.getTime() < Date.now() && status !== 'completed' : false;
+          const title = isOverdue ? 'Task Overdue' : status === 'completed' ? 'Task Completed' : 'Task Updated';
+          const id = `task-${t.id}`;
+          mapped.push({
+            id,
+            title,
+            message: String(t.title || 'Task'),
+            type: isOverdue ? 'warning' : status === 'completed' ? 'success' : 'info',
+            read: readIds.has(id),
+            userId: userId || 'system',
+            caseId: t.case_id || undefined,
+            createdAt: t.created_at ? new Date(t.created_at) : new Date(),
+          });
+        });
+
+        (casesRes.data || []).forEach((c: any) => {
+          const status = String(c.case_status || '').toLowerCase();
+          const title = status === 'closed' ? 'Case Closed' : 'New Case Created';
+          const id = `case-${c.id}`;
+          mapped.push({
+            id,
+            title,
+            message: String(c.deceased_name || 'Case'),
+            type: status === 'closed' ? 'success' : 'info',
+            read: readIds.has(id),
+            userId: userId || 'system',
+            caseId: c.id,
+            createdAt: c.created_at ? new Date(c.created_at) : new Date(),
+          });
+        });
+
+        const next = mapped
+          .filter((n) => !deletedIds.has(n.id))
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 10);
+
+        setNotifications(next);
+      } catch (e) {
+        console.error('Failed to load header notifications:', e);
+        setNotifications([]);
+      }
+    };
+
+    load();
+
+    const channel = supabase
+      .channel(`realtime header-notifications:${parlorId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments', filter: `parlor_id=eq.${parlorId}` },
+        () => load(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks', filter: `parlor_id=eq.${parlorId}` },
+        () => load(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cases', filter: `parlor_id=eq.${parlorId}` },
+        () => load(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [parlorId]);
+
+  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   const navigate = useNavigate();
 
@@ -162,8 +322,35 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
                   <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {mockNotifications.slice(0, 5).map((notification) => (
-                    <div key={notification.id} className="p-4 border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700">
+                  {notifications.slice(0, 5).map((notification) => (
+                    <button
+                      key={notification.id}
+                      className="w-full text-left p-4 border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
+                        (async () => {
+                          try {
+                            const { data: auth } = await supabase.auth.getUser();
+                            const userId = auth?.user?.id ?? null;
+
+                            const key = `notifications:${userId || 'anon'}:${parlorId || 'no-parlor'}`;
+                            const raw = localStorage.getItem(key);
+                            const parsed = raw ? (JSON.parse(raw) as { readIds?: string[]; deletedIds?: string[] }) : {};
+                            const readIds = new Set<string>(parsed.readIds || []);
+                            const deletedIds = new Set<string>(parsed.deletedIds || []);
+                            readIds.add(notification.id);
+                            localStorage.setItem(key, JSON.stringify({ readIds: Array.from(readIds), deletedIds: Array.from(deletedIds) }));
+                          } catch {
+                            // ignore
+                          }
+                        })();
+
+                        if (parlorRouteKey) {
+                          navigate(`/${parlorRouteKey}/notifications`);
+                        }
+                      }}
+                    >
                       <div className="flex items-start space-x-3">
                         <div className={`w-2 h-2 rounded-full mt-2 ${
                           notification.read ? 'bg-slate-300' : 'bg-blue-500'
@@ -176,11 +363,22 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
+                  {notifications.length === 0 && (
+                    <div className="p-4 text-sm text-slate-600 dark:text-gray-300">No notifications</div>
+                  )}
                 </div>
                 <div className="p-4">
-                  <button className="w-full text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium">
+                  <button
+                    className="w-full text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
+                    onClick={() => {
+                      setShowNotifications(false);
+                      if (parlorRouteKey) {
+                        navigate(`/${parlorRouteKey}/notifications`);
+                      }
+                    }}
+                  >
                     View all notifications
                   </button>
                 </div>

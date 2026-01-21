@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Clock, TrendingUp, DollarSign, AlertTriangle, Users, ArrowRight, Heart, CreditCard, Shield, CheckCircle2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import StatsCard from './StatsCard';
 import RecentActivity from './RecentActivity';
-import { mockAnalytics } from '../../data/mockData';
 import { useCountUp } from '../../hooks/useCountUp';
 import { supabase } from '../../supabaseClient';
 
@@ -21,13 +20,16 @@ interface Client {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const location = window.location.pathname;
-  const parlorSlug = location.split('/')[1]; // Extract parlor slug from URL
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const parlorId = outlet?.parlorId || '';
+  const parlorRouteKey = outlet?.parlorRouteKey || parlorKey || '';
   const [clients, setClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<{ role: string; full_name: string } | null>(null);
+
   const [paymentsData, setPaymentsData] = useState({
     totalPayments: 0,
     pendingPayments: 0,
@@ -37,6 +39,22 @@ const Dashboard: React.FC = () => {
 
   const [totalCases, setTotalCases] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
+
+  const [completedCases, setCompletedCases] = useState(0);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [avgCaseValue, setAvgCaseValue] = useState(0);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+
+  const [planSummary, setPlanSummary] = useState<{ count: number; minCover: number | null; maxCover: number | null; topPlans: Array<{ id: string; name: string; monthly_premium: number }> }>({
+    count: 0,
+    minCover: null,
+    maxCover: null,
+    topPlans: [],
+  });
+
+  const [casesMonthChangePct, setCasesMonthChangePct] = useState<number | null>(null);
+  const [tasksWeekChangeCount, setTasksWeekChangeCount] = useState<number | null>(null);
+  const [revenueMonthChangePct, setRevenueMonthChangePct] = useState<number | null>(null);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-ZA', {
@@ -50,13 +68,18 @@ const Dashboard: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+
+        if (!parlorId) {
+          setError('No parlor specified');
+          return;
+        }
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError) {
           console.error('Error fetching user:', userError);
           return;
         }
-        
+
         if (!user) {
           console.log('No user logged in');
           return;
@@ -86,18 +109,20 @@ const Dashboard: React.FC = () => {
           console.log('Fetching all clients for dashboard, role:', profile.role);
           const { count, error: countError } = await supabase
             .from('clients')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true })
+            .eq('parlor_id', parlorId);
 
           if (countError) {
             console.error('Error counting clients:', countError);
           } else {
             console.log('Total client count:', count);
           }
-          
+
           // Get recent clients (limit 5)
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
             .select('*')
+            .eq('parlor_id', parlorId)
             .order('created_at', { ascending: false })
             .limit(5);
 
@@ -113,7 +138,8 @@ const Dashboard: React.FC = () => {
           // Fetch payments data
           const { data: payments, error: paymentsError } = await supabase
             .from('payments')
-            .select('amount, status');
+            .select('amount, status, created_at, case_id')
+            .eq('parlor_id', parlorId);
 
           if (paymentsError) {
             console.error('Error fetching payments:', paymentsError);
@@ -124,18 +150,52 @@ const Dashboard: React.FC = () => {
               .filter(p => p.status === 'completed')
               .reduce((sum, p) => sum + (p.amount || 0), 0);
 
+            const now = new Date();
+            const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+            const startOfPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+            const endOfPrevMonth = startOfMonth;
+            const monthRevenue = payments
+              .filter(p => p.status === 'completed')
+              .filter(p => {
+                const created = p.created_at ? new Date(p.created_at) : null;
+                return created ? created >= startOfMonth : false;
+              })
+              .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+            const prevMonthRevenue = payments
+              .filter(p => p.status === 'completed')
+              .filter(p => {
+                const created = p.created_at ? new Date(p.created_at) : null;
+                return created ? created >= startOfPrevMonth && created < endOfPrevMonth : false;
+              })
+              .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+            const completedPayments = payments.filter(p => p.status === 'completed');
+            const avgValue = completedPayments.length > 0 ? revenue / completedPayments.length : 0;
+
             setPaymentsData({
               totalPayments: payments.length,
               pendingPayments: pending,
               completedPayments: completed,
               totalRevenue: revenue
             });
+
+            setMonthlyRevenue(monthRevenue);
+            setAvgCaseValue(avgValue);
+            setPendingPaymentsCount(pending);
+
+            if (prevMonthRevenue === 0) {
+              setRevenueMonthChangePct(monthRevenue === 0 ? 0 : 100);
+            } else {
+              setRevenueMonthChangePct(((monthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100);
+            }
           }
 
           // Fetch total cases
           const { count: casesCount, error: casesError } = await supabase
             .from('cases')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true })
+            .eq('parlor_id', parlorId);
 
           if (casesError) {
             console.error('Error counting cases:', casesError);
@@ -146,15 +206,131 @@ const Dashboard: React.FC = () => {
           // Fetch total tasks
           const { count: tasksCount, error: tasksError } = await supabase
             .from('tasks')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true })
+            .eq('parlor_id', parlorId);
 
           if (tasksError) {
             console.error('Error counting tasks:', tasksError);
           } else {
             setTotalTasks(tasksCount || 0);
           }
+
+          // Compute month-over-month change for cases
+          {
+            const now = new Date();
+            const startOfThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+            const startOfPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+            const endOfPrevMonth = startOfThisMonth;
+
+            const [thisMonthRes, prevMonthRes] = await Promise.all([
+              supabase
+                .from('cases')
+                .select('*', { count: 'exact', head: true })
+                .eq('parlor_id', parlorId)
+                .gte('created_at', startOfThisMonth.toISOString()),
+              supabase
+                .from('cases')
+                .select('*', { count: 'exact', head: true })
+                .eq('parlor_id', parlorId)
+                .gte('created_at', startOfPrevMonth.toISOString())
+                .lt('created_at', endOfPrevMonth.toISOString()),
+            ]);
+
+            if (thisMonthRes.error) {
+              console.error('Error counting cases for current month:', thisMonthRes.error);
+              setCasesMonthChangePct(null);
+            } else if (prevMonthRes.error) {
+              console.error('Error counting cases for previous month:', prevMonthRes.error);
+              setCasesMonthChangePct(null);
+            } else {
+              const thisMonth = thisMonthRes.count || 0;
+              const prevMonth = prevMonthRes.count || 0;
+
+              if (prevMonth === 0) {
+                setCasesMonthChangePct(thisMonth === 0 ? 0 : 100);
+              } else {
+                setCasesMonthChangePct(((thisMonth - prevMonth) / prevMonth) * 100);
+              }
+            }
+          }
+
+          // Compute week-over-week change for tasks
+          {
+            const now = new Date();
+            const startOfThisWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 7));
+            const startOfPrevWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 14));
+            const endOfPrevWeek = startOfThisWeek;
+
+            const [thisWeekRes, prevWeekRes] = await Promise.all([
+              supabase
+                .from('tasks')
+                .select('*', { count: 'exact', head: true })
+                .eq('parlor_id', parlorId)
+                .gte('created_at', startOfThisWeek.toISOString()),
+              supabase
+                .from('tasks')
+                .select('*', { count: 'exact', head: true })
+                .eq('parlor_id', parlorId)
+                .gte('created_at', startOfPrevWeek.toISOString())
+                .lt('created_at', endOfPrevWeek.toISOString()),
+            ]);
+
+            if (thisWeekRes.error) {
+              console.error('Error counting tasks for current week:', thisWeekRes.error);
+              setTasksWeekChangeCount(null);
+            } else if (prevWeekRes.error) {
+              console.error('Error counting tasks for previous week:', prevWeekRes.error);
+              setTasksWeekChangeCount(null);
+            } else {
+              const thisWeek = thisWeekRes.count || 0;
+              const prevWeek = prevWeekRes.count || 0;
+              setTasksWeekChangeCount(thisWeek - prevWeek);
+            }
+          }
+
+          // Fetch completed cases
+          const { count: completedCount, error: completedError } = await supabase
+            .from('cases')
+            .select('*', { count: 'exact', head: true })
+            .eq('parlor_id', parlorId)
+            .eq('case_status', 'closed');
+
+          if (completedError) {
+            console.error('Error counting completed cases:', completedError);
+          } else {
+            setCompletedCases(completedCount || 0);
+          }
+
+          // Fetch plans summary (used for the dashboard services card)
+          const { data: plansData, error: plansError } = await supabase
+            .from('plans')
+            .select('id, name, monthly_premium, cover_amount')
+            .eq('parlor_id', parlorId)
+            .eq('is_active', true)
+            .order('monthly_premium', { ascending: true });
+
+          if (plansError) {
+            console.error('Error loading plans for dashboard:', plansError);
+          } else {
+            const rows = plansData || [];
+            const coverValues = rows
+              .map((p: any) => (typeof p.cover_amount === 'number' ? p.cover_amount : null))
+              .filter((v: number | null): v is number => v !== null);
+
+            setPlanSummary({
+              count: rows.length,
+              minCover: coverValues.length > 0 ? Math.min(...coverValues) : null,
+              maxCover: coverValues.length > 0 ? Math.max(...coverValues) : null,
+              topPlans: rows.slice(0, 3).map((p: any) => ({
+                id: p.id,
+                name: String(p.name || ''),
+                monthly_premium: typeof p.monthly_premium === 'number' ? p.monthly_premium : 0,
+              })),
+            });
+          }
         }
       } catch (err) {
+
         const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
         console.error('Error fetching dashboard data:', err);
         setError(errorMessage);
@@ -164,13 +340,23 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [parlorId]);
 
   // Animated values for Quick Overview
-  const animatedCompletedCases = useCountUp(mockAnalytics.completedCases, 3000, 800);
-  const animatedMonthlyRevenue = useCountUp(mockAnalytics.monthlyRevenue, 3000, 900);
-  const animatedAvgCaseValue = useCountUp(mockAnalytics.avgCaseValue, 3000, 1000);
-  const animatedPendingPayments = useCountUp(mockAnalytics.pendingPayments, 3000, 1100);
+  const animatedCompletedCases = useCountUp(completedCases, 3000, 800);
+  const animatedMonthlyRevenue = useCountUp(monthlyRevenue, 3000, 900);
+  const animatedAvgCaseValue = useCountUp(avgCaseValue, 3000, 1000);
+  const animatedPendingPayments = useCountUp(pendingPaymentsCount, 3000, 1100);
+
+  if (!parlorId) {
+    return (
+      <div className="p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+          <p className="text-slate-700 dark:text-gray-300">No parlor specified</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -178,8 +364,8 @@ const Dashboard: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 rounded-lg p-6 text-white animate-fadeIn">
         <h1 className="text-2xl font-bold mb-2">
           {`Welcome back, ${userProfile?.full_name || 'User'}`.split('').map((letter, index) => (
-            <span 
-              key={index} 
+            <span
+              key={index}
               className="animate-fadeInLetter"
               style={{ animationDelay: `${index * 80}ms` }}
             >
@@ -194,7 +380,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <button
           type="button"
-          onClick={() => navigate(`/${parlorSlug}/clients`)}
+          onClick={() => navigate(`/${parlorRouteKey}/clients`)}
           className="text-left animate-fadeInUp"
           style={{ animationDelay: '200ms' }}
         >
@@ -210,7 +396,7 @@ const Dashboard: React.FC = () => {
         </button>
         <button
           type="button"
-          onClick={() => navigate(`/${parlorSlug}/cases`)}
+          onClick={() => navigate(`/${parlorRouteKey}/cases`)}
           className="text-left animate-fadeInUp"
           style={{ animationDelay: '300ms' }}
         >
@@ -218,15 +404,25 @@ const Dashboard: React.FC = () => {
             title="Total Cases"
             value={totalCases}
             icon={FileText}
-            change="+12% from last month"
-            changeType="increase"
+            change={
+              casesMonthChangePct === null
+                ? '—'
+                : `${casesMonthChangePct >= 0 ? '+' : ''}${Math.round(casesMonthChangePct)}% from last month`
+            }
+            changeType={
+              casesMonthChangePct === null
+                ? 'neutral'
+                : casesMonthChangePct >= 0
+                  ? 'increase'
+                  : 'decrease'
+            }
             color="purple"
             animationDelay={300}
           />
         </button>
         <button
           type="button"
-          onClick={() => navigate(`/${parlorSlug}/tasks`)}
+          onClick={() => navigate(`/${parlorRouteKey}/tasks`)}
           className="text-left animate-fadeInUp"
           style={{ animationDelay: '400ms' }}
         >
@@ -234,24 +430,44 @@ const Dashboard: React.FC = () => {
             title="Total Tasks"
             value={totalTasks}
             icon={Clock}
-            change="+3 this week"
-            changeType="increase"
+            change={
+              tasksWeekChangeCount === null
+                ? '—'
+                : `${tasksWeekChangeCount >= 0 ? '+' : ''}${tasksWeekChangeCount} this week`
+            }
+            changeType={
+              tasksWeekChangeCount === null
+                ? 'neutral'
+                : tasksWeekChangeCount >= 0
+                  ? 'increase'
+                  : 'decrease'
+            }
             color="yellow"
             animationDelay={400}
           />
         </button>
         <button
           type="button"
-          onClick={() => navigate(`/${parlorSlug}/payments`)}
+          onClick={() => navigate(`/${parlorRouteKey}/payments`)}
           className="text-left animate-fadeInUp"
           style={{ animationDelay: '500ms' }}
         >
           <StatsCard
             title="Total Revenue"
-            value={formatCurrency(mockAnalytics.totalRevenue)}
+            value={formatCurrency(paymentsData.totalRevenue)}
             icon={DollarSign}
-            change="+8% from last month"
-            changeType="increase"
+            change={
+              revenueMonthChangePct === null
+                ? '—'
+                : `${revenueMonthChangePct >= 0 ? '+' : ''}${Math.round(revenueMonthChangePct)}% from last month`
+            }
+            changeType={
+              revenueMonthChangePct === null
+                ? 'neutral'
+                : revenueMonthChangePct >= 0
+                  ? 'increase'
+                  : 'decrease'
+            }
             color="green"
             animationDelay={500}
           />
@@ -322,7 +538,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate(`/${parlorSlug}/services`)}
+              onClick={() => navigate(`/${parlorRouteKey}/services`)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
             >
               View All
@@ -335,21 +551,19 @@ const Dashboard: React.FC = () => {
             <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-purple-900 dark:text-purple-200">Main Funeral Plans</h4>
-                <span className="text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full">3 Plans</span>
+                <span className="text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full">{planSummary.count} Plans</span>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-slate-700 dark:text-gray-300">Family Burial Society - R120/month</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-slate-700 dark:text-gray-300">Kopano (Most Popular) - R170/month</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-slate-700 dark:text-gray-300">Urmbisa Premium - R270/month</span>
-                </div>
+                {planSummary.topPlans.length === 0 ? (
+                  <div className="text-sm text-slate-700 dark:text-gray-300">No active plans yet</div>
+                ) : (
+                  planSummary.topPlans.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <span className="text-slate-700 dark:text-gray-300">{p.name} - {formatCurrency(p.monthly_premium)}/month</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -379,7 +593,9 @@ const Dashboard: React.FC = () => {
             <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
               <p className="text-xs text-green-800 dark:text-green-200 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                Coverage from R5,000 to R30,000 available
+                {planSummary.minCover !== null && planSummary.maxCover !== null
+                  ? `Coverage from ${formatCurrency(planSummary.minCover)} to ${formatCurrency(planSummary.maxCover)} available`
+                  : 'Coverage information not available yet'}
               </p>
             </div>
           </div>
@@ -398,7 +614,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate(`/${parlorSlug}/payments`)}
+              onClick={() => navigate(`/${parlorRouteKey}/payments`)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
             >
               View All
@@ -473,7 +689,7 @@ const Dashboard: React.FC = () => {
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Recent Clients</h3>
             <button
-              onClick={() => navigate(`/${parlorSlug}/clients`)}
+              onClick={() => navigate(`/${parlorRouteKey}/clients`)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center"
             >
               View All
@@ -497,7 +713,7 @@ const Dashboard: React.FC = () => {
               <Users className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
               <p className="text-gray-600 dark:text-gray-400">No clients yet</p>
               <button
-                onClick={() => navigate(`/${parlorSlug}/clients`)}
+                onClick={() => navigate(`/${parlorRouteKey}/clients`)}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Add Your First Client
@@ -508,8 +724,8 @@ const Dashboard: React.FC = () => {
               {clients.map((client, index) => (
                 <div
                   key={client.id}
-                  onClick={() => navigate(`/${parlorSlug}/clients/${client.id}`)}
-                  className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg transition-all duration-300 hover:shadow-md hover:scale-[1.02] cursor-pointer animate-fadeInUp"
+                  onClick={() => navigate(`/${parlorRouteKey}/clients/${client.id}`)}
+                  className={`p-4 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] animate-fadeInUp`}
                   style={{ animationDelay: `${1300 + index * 100}ms` }}
                 >
                   <div className="w-12 h-12 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center transition-all duration-300">

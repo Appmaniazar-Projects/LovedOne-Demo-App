@@ -3,7 +3,7 @@ import { Plus, Calendar, User, Flag, Clock } from 'lucide-react';
 import { mockTasks } from '../../data/mockData';
 import { Task } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
@@ -16,7 +16,10 @@ interface StaffProfile {
 
 const TaskBoard: React.FC = () => {
   const { theme } = useTheme();
-  const { parlorName } = useParams<{ parlorName: string }>();
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const resolvedParlorId = outlet?.parlorId || '';
+  void parlorKey;
   const [currentParlorId, setCurrentParlorId] = useState<string>('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,27 +70,10 @@ const TaskBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchParlorId = async () => {
-      if (!isSupabaseConfigured() || !parlorName) return;
-
-      const { data: parlorData, error: parlorError } = await supabase
-        .from('parlors')
-        .select('id')
-        .eq('name', decodeURIComponent(parlorName))
-        .single();
-
-      if (parlorError) {
-        console.error('Error fetching parlor for tasks:', parlorError);
-        return;
-      }
-
-      if (parlorData && parlorData.id !== currentParlorId) {
-        setCurrentParlorId(parlorData.id);
-      }
-    };
-
-    fetchParlorId();
-  }, [parlorName, currentParlorId]);
+    if (resolvedParlorId && resolvedParlorId !== currentParlorId) {
+      setCurrentParlorId(resolvedParlorId);
+    }
+  }, [resolvedParlorId, currentParlorId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -96,11 +82,19 @@ const TaskBoard: React.FC = () => {
         return;
       }
 
+      if (!currentParlorId) {
+        setTasks([]);
+        setStaffList([]);
+        setCaseOptions([]);
+        return;
+      }
+
       try {
-        // Load tasks from Supabase with cross-branch visibility
+        // Load tasks from Supabase
         const { data: taskRows, error: tasksError } = await supabase
           .from('tasks')
           .select('id, title, description, type, priority, status, assigned_to, due_date, case_id, parlor_id, created_at, updated_at')
+          .eq('parlor_id', currentParlorId)
           .order('created_at', { ascending: false });
 
         if (tasksError) {
@@ -145,6 +139,7 @@ const TaskBoard: React.FC = () => {
         const { data: caseRows, error: casesError } = await supabase
           .from('cases')
           .select('id, deceased_name, case_status')
+          .eq('parlor_id', currentParlorId)
           .order('created_at', { ascending: false });
 
         if (casesError) {

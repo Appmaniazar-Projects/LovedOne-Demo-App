@@ -1,12 +1,163 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Check, X, AlertTriangle, Info, CheckCircle, XCircle, Filter, Search } from 'lucide-react';
-import { mockNotifications } from '../../data/mockData';
 import { Notification } from '../../types';
+import { useOutletContext, useParams } from 'react-router-dom';
+import { supabase } from '../../supabaseClient';
 
 const Notifications: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const parlorId = outlet?.parlorId || '';
+  void parlorKey;
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const getStorageKey = (userId: string | null) => `notifications:${userId || 'anon'}:${parlorId || 'no-parlor'}`;
+
+  const loadPersistedState = (userId: string | null) => {
+    try {
+      const raw = localStorage.getItem(getStorageKey(userId));
+      if (!raw) {
+        return { readIds: new Set<string>(), deletedIds: new Set<string>() };
+      }
+      const parsed = JSON.parse(raw) as { readIds?: string[]; deletedIds?: string[] };
+      return {
+        readIds: new Set<string>(parsed.readIds || []),
+        deletedIds: new Set<string>(parsed.deletedIds || []),
+      };
+    } catch {
+      return { readIds: new Set<string>(), deletedIds: new Set<string>() };
+    }
+  };
+
+  const savePersistedState = (userId: string | null, readIds: Set<string>, deletedIds: Set<string>) => {
+    try {
+      localStorage.setItem(
+        getStorageKey(userId),
+        JSON.stringify({ readIds: Array.from(readIds), deletedIds: Array.from(deletedIds) }),
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (!parlorId) {
+          setNotifications([]);
+          setError('No parlor specified');
+          return;
+        }
+
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth?.user?.id ?? null;
+        const { readIds, deletedIds } = loadPersistedState(userId);
+
+        const nowIso = new Date().toISOString();
+        const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        const [paymentsRes, tasksRes, casesRes] = await Promise.all([
+          supabase
+            .from('payments')
+            .select('id, amount, status, created_at, case_id')
+            .eq('parlor_id', parlorId)
+            .gte('created_at', weekAgoIso)
+            .order('created_at', { ascending: false })
+            .limit(30),
+          supabase
+            .from('tasks')
+            .select('id, title, status, due_date, created_at, case_id')
+            .eq('parlor_id', parlorId)
+            .order('created_at', { ascending: false })
+            .limit(30),
+          supabase
+            .from('cases')
+            .select('id, deceased_name, case_status, created_at')
+            .eq('parlor_id', parlorId)
+            .gte('created_at', weekAgoIso)
+            .order('created_at', { ascending: false })
+            .limit(30),
+        ]);
+
+        const anyError = paymentsRes.error || tasksRes.error || casesRes.error;
+        if (anyError) {
+          setNotifications([]);
+          setError(anyError.message || 'Failed to load notifications');
+          return;
+        }
+
+        const mapped: Notification[] = [];
+
+        (paymentsRes.data || []).forEach((p: any) => {
+          const status = String(p.status || '').toLowerCase();
+          const title = status === 'completed' ? 'Payment Received' : status === 'pending' ? 'Payment Pending' : 'Payment Updated';
+          mapped.push({
+            id: `payment-${p.id}`,
+            title,
+            message: `Payment of ${new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(p.amount || 0))} (${status || 'unknown'})`,
+            type: status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'info',
+            read: readIds.has(`payment-${p.id}`),
+            userId: userId || 'system',
+            caseId: p.case_id || undefined,
+            createdAt: p.created_at ? new Date(p.created_at) : new Date(),
+          });
+        });
+
+        (tasksRes.data || []).forEach((t: any) => {
+          const status = String(t.status || '').toLowerCase();
+          const due = t.due_date ? new Date(t.due_date) : null;
+          const isOverdue = due ? due.getTime() < Date.now() && status !== 'completed' : false;
+          const title = isOverdue ? 'Task Overdue' : status === 'completed' ? 'Task Completed' : 'Task Updated';
+          mapped.push({
+            id: `task-${t.id}`,
+            title,
+            message: String(t.title || 'Task'),
+            type: isOverdue ? 'warning' : status === 'completed' ? 'success' : 'info',
+            read: readIds.has(`task-${t.id}`),
+            userId: userId || 'system',
+            caseId: t.case_id || undefined,
+            createdAt: t.created_at ? new Date(t.created_at) : new Date(),
+          });
+        });
+
+        (casesRes.data || []).forEach((c: any) => {
+          const status = String(c.case_status || '').toLowerCase();
+          const title = status === 'closed' ? 'Case Closed' : 'New Case Created';
+          mapped.push({
+            id: `case-${c.id}`,
+            title,
+            message: String(c.deceased_name || 'Case'),
+            type: status === 'closed' ? 'success' : 'info',
+            read: readIds.has(`case-${c.id}`),
+            userId: userId || 'system',
+            caseId: c.id,
+            createdAt: c.created_at ? new Date(c.created_at) : new Date(),
+          });
+        });
+
+        const next = mapped
+          .filter((n) => !deletedIds.has(n.id))
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 50);
+
+        setNotifications(next);
+      } catch (e: any) {
+        setNotifications([]);
+        setError(e?.message || 'Failed to load notifications');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [parlorId]);
 
   const filteredNotifications = notifications.filter(notification => {
     const matchesSearch = notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -19,17 +170,36 @@ const Notifications: React.FC = () => {
   });
 
   const markAsRead = (id: string) => {
-    setNotifications(notifications.map(notification =>
+    setNotifications((prev) => prev.map(notification =>
       notification.id === id ? { ...notification, read: true } : notification
     ));
+
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data?.user?.id ?? null;
+      const state = loadPersistedState(userId);
+      state.readIds.add(id);
+      savePersistedState(userId, state.readIds, state.deletedIds);
+    });
   };
 
   const markAllAsRead = () => {
-    setNotifications(notifications.map(notification => ({ ...notification, read: true })));
+    setNotifications((prev) => prev.map(notification => ({ ...notification, read: true })));
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data?.user?.id ?? null;
+      const state = loadPersistedState(userId);
+      notifications.forEach((n) => state.readIds.add(n.id));
+      savePersistedState(userId, state.readIds, state.deletedIds);
+    });
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications(notifications.filter(notification => notification.id !== id));
+    setNotifications((prev) => prev.filter(notification => notification.id !== id));
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data?.user?.id ?? null;
+      const state = loadPersistedState(userId);
+      state.deletedIds.add(id);
+      savePersistedState(userId, state.readIds, state.deletedIds);
+    });
   };
 
   const getNotificationIcon = (type: string) => {
@@ -106,6 +276,18 @@ const Notifications: React.FC = () => {
           </button>
         )}
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
+          <p className="text-slate-600 dark:text-gray-300">Loading notifications...</p>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">

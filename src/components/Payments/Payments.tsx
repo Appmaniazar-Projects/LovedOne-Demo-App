@@ -6,11 +6,14 @@ import { supabase } from '../../supabaseClient';
 import { Payment } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCountUp } from '../../hooks/useCountUp';
-import { useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 
 const Payments: React.FC = () => {
   const { theme } = useTheme();
-  const { parlorName } = useParams<{ parlorName: string }>();
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const parlorId = outlet?.parlorId || '';
+  void parlorKey;
   const [currentParlorId, setCurrentParlorId] = useState<string>('');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,27 +27,15 @@ const Payments: React.FC = () => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
-    const fetchParlorId = async () => {
-      if (!parlorName) return;
-
-      const { data: parlorData, error: parlorError } = await supabase
-        .from('parlors')
-        .select('id')
-        .eq('name', decodeURIComponent(parlorName))
-        .single();
-
-      if (parlorError) {
-        console.error('Error fetching parlor for payments:', parlorError);
-        return;
-      }
-
-      if (parlorData?.id) {
-        setCurrentParlorId(parlorData.id);
-      }
-    };
-
-    fetchParlorId();
-  }, [parlorName]);
+    if (!parlorId) {
+      setCurrentParlorId('');
+      setLoading(false);
+      setError('Parlor not found');
+      return;
+    }
+    setError(null);
+    setCurrentParlorId(parlorId);
+  }, [parlorId]);
 
   const handleViewPayment = (payment: Payment) => {
     setSelectedPayment(payment);
@@ -99,10 +90,11 @@ Generated on: ${new Date().toLocaleString('en-US')}
     window.URL.revokeObjectURL(url);
   };
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (parlorIdToFetch: string) => {
     const { data, error } = await supabase
       .from('payments')
       .select('*')
+      .eq('parlor_id', parlorIdToFetch)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -117,19 +109,27 @@ Generated on: ${new Date().toLocaleString('en-US')}
   };
 
   useEffect(() => {
-    fetchPayments();
+    if (!currentParlorId) return;
 
-    const channel = supabase.channel('realtime payments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, (payload) => {
-        console.log('Change received!', payload);
-        fetchPayments();
-      })
+    setLoading(true);
+    fetchPayments(currentParlorId);
+
+    const channel = supabase
+      .channel(`realtime payments:${currentParlorId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments', filter: `parlor_id=eq.${currentParlorId}` },
+        (payload) => {
+          console.log('Change received!', payload);
+          fetchPayments(currentParlorId);
+        },
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentParlorId]);
 
   const filteredPayments = payments.filter(payment => {
     const searchStr = `${payment.description} ${payment.transactionId}`.toLowerCase();
@@ -204,8 +204,20 @@ Generated on: ${new Date().toLocaleString('en-US')}
     <div className="p-6 space-y-6 animate-fadeIn">
       <RequestPaymentModal
         isOpen={isRequestModalOpen}
-        onClose={() => setIsRequestModalOpen(false)}
+        onClose={() => {
+          setIsRequestModalOpen(false);
+          if (currentParlorId) {
+            setLoading(true);
+            fetchPayments(currentParlorId);
+          }
+        }}
         parlorId={currentParlorId}
+        onPaymentCreated={() => {
+          if (currentParlorId) {
+            setLoading(true);
+            fetchPayments(currentParlorId);
+          }
+        }}
       />
       <ViewPaymentModal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} payment={selectedPayment} />
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { DivideIcon as LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useCountUp } from '../../hooks/useCountUp';
 
 interface StatsCardProps {
@@ -67,13 +67,13 @@ const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition-colors duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition-colors duration-200 h-32">
       <div className="flex items-center justify-between">
-        <div className="flex-1">
+        <div className="flex-1 flex flex-col justify-between h-full">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{displayValue}</p>
           {change && (
-            <p className={`text-sm mt-2 ${changeClasses[changeType]} flex items-center`}>
+            <p className={`text-sm mt-2 ${changeClasses[changeType]} flex items-center line-clamp-1`}>
               {changeType === 'increase' && (
                 <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />

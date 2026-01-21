@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { startCheckout } from '@easypaypt/checkout-sdk';
 import { supabase } from '../../supabaseClient'; // Assuming this is the correct path
@@ -8,12 +8,13 @@ interface RequestPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   parlorId: string;
+  onPaymentCreated?: () => void;
 }
 
 // This function now calls our Supabase Edge Function to securely create a checkout session.
-const getCheckoutManifest = async (amount: number, description: string) => {
+const getCheckoutManifest = async (amount: number, description: string, parlorId: string) => {
   const { data, error } = await supabase.functions.invoke('create-easypay-checkout', {
-    body: { amount, description },
+    body: { amount, description, parlorId },
   });
 
   if (error) {
@@ -24,21 +25,22 @@ const getCheckoutManifest = async (amount: number, description: string) => {
   return data;
 };
 
-const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClose, parlorId }) => {
+const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClose, parlorId, onPaymentCreated }) => {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [mode, setMode] = useState<'manual' | 'easypay'>('manual');
-  let checkoutInstance: any = null;
+  const checkoutInstanceRef = useRef<any>(null);
 
   useEffect(() => {
     // Clean up the checkout form when the modal is closed or component unmounts
     return () => {
-      if (checkoutInstance) {
-        checkoutInstance.unmount();
+      if (checkoutInstanceRef.current) {
+        checkoutInstanceRef.current.unmount();
+        checkoutInstanceRef.current = null;
       }
     };
-  }, [checkoutInstance]);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -69,7 +71,9 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             transaction_id: null,
             case_id: null,
             parlor_id: parlorId,
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) {
           console.error('Failed to create manual payment:', error);
@@ -78,18 +82,41 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
         }
 
         toast.success('Manual payment request created.');
+        onPaymentCreated?.();
         onClose();
         return;
       }
 
-      const manifest = await getCheckoutManifest(parsedAmount, description);
+      const manifest = await getCheckoutManifest(parsedAmount, description, parlorId);
+      const transactionId = (manifest as any)?.transaction_id as string | undefined;
 
-      checkoutInstance = startCheckout(manifest, {
+      if (checkoutInstanceRef.current) {
+        checkoutInstanceRef.current.unmount();
+        checkoutInstanceRef.current = null;
+      }
+
+      checkoutInstanceRef.current = startCheckout(manifest, {
         id: 'easypay-checkout-form',
-        testing: true,
-        onSuccess: (result) => {
+        testing: import.meta.env.DEV,
+        onSuccess: async (result) => {
           console.log('Payment successful:', result);
+          try {
+            if (transactionId) {
+              const { error: updateError } = await supabase
+                .from('payments')
+                .update({ status: 'completed' })
+                .eq('transaction_id', transactionId);
+
+              if (updateError) {
+                console.error('Failed to update payment status after checkout success:', updateError);
+              }
+            }
+          } catch (e) {
+            console.error('Unexpected error updating payment status after checkout success:', e);
+          }
+
           toast.success('Payment process completed successfully!');
+          onPaymentCreated?.();
           onClose();
         },
         onClose: () => {

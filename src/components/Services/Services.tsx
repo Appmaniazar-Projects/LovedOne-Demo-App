@@ -1,7 +1,7 @@
 // Services.tsx - Complete implementation with real Supabase integration
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import { Shield, Heart, Plus, Edit2, Trash2, Clock, TrendingUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -29,8 +29,11 @@ interface ServiceType {
 }
 
 const Services: React.FC = () => {
-  const { parlorName } = useParams<{ parlorName: string }>();
-  
+  const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
+  const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
+  const resolvedParlorId = outlet?.parlorId || '';
+  void parlorKey;
+
   // State management
   const [plans, setPlans] = useState<Plan[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
@@ -61,36 +64,16 @@ const Services: React.FC = () => {
   const [savingPlan, setSavingPlan] = useState(false);
   const [savingService, setSavingService] = useState(false);
 
-  // Fetch parlor ID from parlor name in URL (matches App.tsx & ParlorLayout)
+  // Get parlor ID from URL (App.tsx uses :parlorId)
   useEffect(() => {
-    const fetchParlor = async () => {
-      try {
-        if (!parlorName) {
-          setError('No parlor specified');
-          setLoading(false);
-          return;
-        }
+    if (!resolvedParlorId) {
+      setError('No parlor specified');
+      setLoading(false);
+      return;
+    }
 
-        // Decode parlor name from URL and look up by name
-        const decodedParlorName = decodeURIComponent(parlorName);
-        const { data, error: parlorError } = await supabase
-          .from('parlors')
-          .select('id')
-          .eq('name', decodedParlorName)
-          .single();
-
-        if (parlorError) throw parlorError;
-        
-        setParlorId(data.id);
-      } catch (err) {
-        console.error('Error fetching parlor:', err);
-        setError('Failed to load parlor information');
-        setLoading(false);
-      }
-    };
-
-    fetchParlor();
-  }, [parlorName]);
+    setParlorId(resolvedParlorId);
+  }, [resolvedParlorId]);
 
   // Fetch all data when parlor ID is available
   useEffect(() => {
