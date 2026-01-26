@@ -10,8 +10,8 @@ import Header from './components/Layout/Header';
 import Dashboard from './components/Dashboard/Dashboard';
 import Clients from './components/Clients/Clients';
 import Cases from './components/Cases/Cases';
+import CasesBoard from './components/Cases/CasesBoard';
 import Payments from './components/Payments/Payments';
-import TaskBoard from './components/Tasks/TaskBoard';
 import Services from './components/Services/Services';
 import Reports from './components/Reports/Reports';
 import Notifications from './components/Notifications/Notifications';
@@ -272,7 +272,7 @@ function App() {
         <Route path="clients/:id" element={<ClientDetails />} />
         <Route path="cases" element={<Cases />} />
         <Route path="payments" element={<Payments />} />
-        <Route path="tasks" element={<TaskBoard />} />
+        <Route path="tasks" element={<CasesBoard />} />
         <Route path="services" element={<Services />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />

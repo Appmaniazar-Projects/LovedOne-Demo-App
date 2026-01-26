@@ -4,10 +4,12 @@ import { DeceasedProfile } from '../../types';
 
 interface CaseCardProps {
   case: DeceasedProfile;
+  policyholderName?: string;
+  planName?: string;
   onClick: () => void;
 }
 
-const CaseCard: React.FC<CaseCardProps> = ({ case: caseData, onClick }) => {
+const CaseCard: React.FC<CaseCardProps> = ({ case: caseData, policyholderName, planName, onClick }) => {
   const statusColors = {
     quote: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200',
     ongoing: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
@@ -58,6 +60,21 @@ const CaseCard: React.FC<CaseCardProps> = ({ case: caseData, onClick }) => {
       </div>
 
       <div className="space-y-3">
+        {(policyholderName || planName) && (
+          <div className="text-sm text-slate-600 dark:text-gray-300">
+            {policyholderName && (
+              <div>
+                Policyholder: {policyholderName}
+              </div>
+            )}
+            {planName && (
+              <div>
+                Plan: {planName}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center space-x-2 transition-transform duration-300 group-hover:translate-x-1">
           <User className="w-4 h-4 text-slate-400 dark:text-gray-500 transition-colors duration-300 group-hover:text-blue-500" />
           <span className="text-sm text-slate-600 dark:text-gray-300">Director: {caseData.assignedDirector}</span>

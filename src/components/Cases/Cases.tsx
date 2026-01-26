@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Plus, Filter, Search } from 'lucide-react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import CaseCard from './CaseCard';
@@ -190,6 +190,7 @@ const Cases: React.FC = () => {
           status: row.status,
           assignedDirector: row.assignedDirector,
           clientId: row.clientId,
+          planId: row.planId || null,
           culturalRequirements: row.culturalRequirements || undefined,
           createdAt: new Date(row.createdAt),
           updatedAt: new Date(row.updatedAt)
@@ -213,7 +214,7 @@ const Cases: React.FC = () => {
 
       const { data, error } = await supabase
         .from('cases')
-        .select('id, deceased_name, date_of_birth, date_of_death, picture, case_status, assigned_director, client_id, cultural_requirements, created_at, updated_at, parlor_id, service_type_id')
+        .select('id, deceased_name, date_of_birth, date_of_death, picture, case_status, assigned_director, client_id, cultural_requirements, created_at, updated_at, parlor_id, service_type_id, plan_id')
         .eq('parlor_id', currentParlorId)
         .order('created_at', { ascending: false });
 
@@ -246,6 +247,7 @@ const Cases: React.FC = () => {
           status: (row.case_status || 'quote') as DeceasedProfile['status'],
           assignedDirector: row.assigned_director || '',
           clientId: row.client_id,
+          planId: row.plan_id || null,
           culturalRequirements: row.cultural_requirements || undefined,
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at)
@@ -274,6 +276,22 @@ const Cases: React.FC = () => {
     
     return matchesSearch && matchesStatus && matchesService;
   });
+
+  const policyholderNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clients) {
+      map.set(c.id, c.name);
+    }
+    return map;
+  }, [clients]);
+
+  const planNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of plans) {
+      map.set(p.id, p.name);
+    }
+    return map;
+  }, [plans]);
 
   const resetForm = () => {
     setForm({
@@ -304,7 +322,7 @@ const Cases: React.FC = () => {
       clientId: caseData.clientId || '',
       culturalRequirements: caseData.culturalRequirements || '',
       picture: caseData.picture || '',
-      planId: ''
+      planId: caseData.planId || ''
     });
 
     if (serviceTypes.length > 0) {
@@ -317,6 +335,12 @@ const Cases: React.FC = () => {
       if (matched) {
         setSelectedServiceTypeId(matched.id);
       }
+    }
+
+    if (caseData.planId) {
+      setSelectedPlanId(caseData.planId);
+    } else if (plans.length > 0) {
+      setSelectedPlanId(plans[0].id);
     }
 
     setIsModalOpen(true);
@@ -333,6 +357,16 @@ const Cases: React.FC = () => {
       return;
     }
 
+    if (plans.length === 0) {
+      toast.error('Please create a plan before creating a case');
+      return;
+    }
+
+    if (!selectedPlanId) {
+      toast.error('Please select a plan');
+      return;
+    }
+
     const fallbackNew: DeceasedProfile = {
       id: (cases.length + 1).toString(),
       name: form.name,
@@ -343,6 +377,7 @@ const Cases: React.FC = () => {
       status: form.status,
       assignedDirector: form.assignedDirector,
       clientId: form.clientId,
+      planId: selectedPlanId,
       culturalRequirements: form.culturalRequirements || undefined,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -363,7 +398,7 @@ const Cases: React.FC = () => {
       });
       setIsModalOpen(false);
       resetForm();
-      toast.success('Case saved locally');
+      toast.success('Case saved locally (offline mode)');
       return;
     }
 
@@ -411,6 +446,7 @@ const Cases: React.FC = () => {
         status: (data.case_status || 'quote') as DeceasedProfile['status'],
         assignedDirector: data.assigned_director || '',
         clientId: data.client_id,
+        planId: data.plan_id || null,
         culturalRequirements: data.cultural_requirements || undefined,
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at)
@@ -460,6 +496,7 @@ const Cases: React.FC = () => {
       status: form.status,
       assignedDirector: form.assignedDirector,
       clientId: form.clientId,
+      planId: selectedPlanId || editingCase.planId || null,
       culturalRequirements: form.culturalRequirements || undefined,
       picture: form.picture || undefined,
       updatedAt: new Date()
@@ -472,6 +509,7 @@ const Cases: React.FC = () => {
           try {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
           } catch {
+            // ignore
           }
         };
         writeToLocalStorage(next);
@@ -519,6 +557,7 @@ const Cases: React.FC = () => {
       status: (data.case_status || 'quote') as DeceasedProfile['status'],
       assignedDirector: data.assigned_director || '',
       clientId: data.client_id,
+      planId: data.plan_id || null,
       culturalRequirements: data.cultural_requirements || undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at)
@@ -530,6 +569,7 @@ const Cases: React.FC = () => {
         try {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
         } catch {
+          // ignore
         }
       };
       writeToLocalStorage(next);
@@ -640,6 +680,8 @@ const Cases: React.FC = () => {
             <div key={caseData.id} className="animate-fadeInUp" style={{ animationDelay: `${300 + index * 50}ms` }}>
               <CaseCard
                 case={caseData}
+                policyholderName={caseData.clientId ? policyholderNameById.get(caseData.clientId) : undefined}
+                planName={caseData.planId ? planNameById.get(caseData.planId) : undefined}
                 onClick={() => handleEditClick(caseData)}
               />
             </div>
@@ -749,7 +791,7 @@ const Cases: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Plan / Package (optional)</label>
+                  <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Plan / Package</label>
                   <select
                     value={selectedPlanId}
                     onChange={(e) => {
@@ -758,8 +800,9 @@ const Cases: React.FC = () => {
                       setForm(prev => ({ ...prev, planId }));
                     }}
                     className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white"
+                    required
                   >
-                    <option value="">No specific plan</option>
+                    <option value="" disabled>Select plan...</option>
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -778,14 +821,14 @@ const Cases: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Client</label>
+                  <label className="block text-sm text-slate-600 dark:text-gray-300 mb-1">Policyholder</label>
                   <select
                     value={form.clientId}
                     onChange={(e) => setForm({ ...form, clientId: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white"
                     required
                   >
-                    <option value="" disabled>Select client...</option>
+                    <option value="" disabled>Select policyholder...</option>
                     {clients.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}

@@ -11,7 +11,7 @@ const LoginPage = () => (
           alt="LovedOne logo"
           className="w-50 h-50 mb-4 object-contain"
         />
-        <p className="text-slate-600">Modern Funeral Management</p>
+        <p className="text-slate-600">Compassionate tech for life's hardest moments</p>
       </div>
       <div className="w-full">
         <Auth
