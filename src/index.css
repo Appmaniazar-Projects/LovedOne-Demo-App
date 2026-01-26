@@ -192,4 +192,18 @@
   .animation-delay-500 {
     animation-delay: 500ms;
   }
+
+  /* Mobile-specific utilities */
+  @media (max-width: 640px) {
+    .mobile-scroll {
+      -webkit-overflow-scrolling: touch;
+      overflow-x: auto;
+    }
+    
+    .mobile-full-width {
+      width: 100vw;
+      margin-left: calc(-50vw + 50%);
+      margin-right: calc(-50vw + 50%);
+    }
+  }
 }

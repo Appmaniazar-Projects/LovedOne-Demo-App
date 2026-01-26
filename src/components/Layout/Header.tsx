@@ -20,6 +20,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -201,6 +202,20 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
     };
   }, [parlorId]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
   const navigate = useNavigate();
@@ -317,7 +332,9 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
             </button>
 
             {showNotifications && (
-              <div className={`absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown`}>
+              <div className={`absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown ${
+                isMobile ? 'right-2 left-2 w-auto' : 'right-0'
+              }`}>
                 <div className="p-4 border-b border-slate-200 dark:border-gray-700">
                   <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
                 </div>
@@ -423,7 +440,9 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
             </button>
 
             {showProfile && (
-              <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown`}>
+              <div className={`absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700 animate-fadeInDown ${
+                isMobile ? 'right-2 left-2 w-auto' : 'right-0'
+              }`}>
                 {user && (
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-gray-700">
                     <p className="font-medium text-slate-900 dark:text-white truncate">Kgopotso</p>

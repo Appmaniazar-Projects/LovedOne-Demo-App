@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Session } from '@supabase/supabase-js';
 import { Routes, Route, useParams, Outlet, Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AuthRedirect from './components/Auth/AuthRedirect';
@@ -32,6 +31,18 @@ const ParlorLayout = () => {
   const [parlorNameState, setParlorName] = useState<string>('');
   const [resolvedParlorId, setResolvedParlorId] = useState<string>('');
   const [parlorRouteKey, setParlorRouteKey] = useState<string>('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchParlorDetails = async () => {
@@ -95,11 +106,33 @@ const ParlorLayout = () => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar parlorId={parlorRouteKey || resolvedParlorId} parlorName={parlorNameState} />
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <Header parlorName={parlorNameState} />
-          <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-6">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        
+        {/* Sidebar */}
+        <div className={`fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:transform-none ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}>
+          <Sidebar 
+            parlorId={parlorRouteKey || resolvedParlorId} 
+            parlorName={parlorNameState} 
+            isMobile={isMobile}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </div>
+        
+        <div className="flex-1 flex flex-col h-full overflow-hidden lg:ml-0">
+          <Header 
+            parlorName={parlorNameState} 
+            onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+          />
+          <main className="flex-1 overflow-auto bg-white dark:bg-gray-900 p-4 sm:p-6">
             <Outlet context={{ parlorId: resolvedParlorId, parlorRouteKey: parlorRouteKey || resolvedParlorId, parlorName: parlorNameState }} />
           </main>
         </div>
@@ -172,7 +205,6 @@ const RoleBasedRedirect = () => {
 
 function App() {
   const navigate = useNavigate();
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -194,7 +226,6 @@ function App() {
         if (now - startedAt > SESSION_MAX_AGE_MS) {
           await supabase.auth.signOut();
           localStorage.removeItem('customSessionStartedAt');
-          setSession(null);
           setLoading(false);
           navigate('/login', { replace: true });
           return;
@@ -203,7 +234,6 @@ function App() {
         localStorage.removeItem('customSessionStartedAt');
       }
 
-      setSession(currentSession);
       setLoading(false);
     });
 
@@ -220,7 +250,6 @@ function App() {
         if (now - startedAt > SESSION_MAX_AGE_MS) {
           await supabase.auth.signOut();
           localStorage.removeItem('customSessionStartedAt');
-          setSession(null);
           setLoading(false);
           navigate('/login', { replace: true });
           return;
@@ -229,7 +258,6 @@ function App() {
         localStorage.removeItem('customSessionStartedAt');
       }
 
-      setSession(currentSession);
       setLoading(false);
     });
 
