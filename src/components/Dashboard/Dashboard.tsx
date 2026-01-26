@@ -377,7 +377,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <button
           type="button"
           onClick={() => navigate(`/${parlorRouteKey}/clients`)}
@@ -475,7 +475,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Charts and Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
         {/* Quick Stats */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Quick Overview</h3>
@@ -524,7 +524,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Services & Payments Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeInUp" style={{ animationDelay: '1000ms' }}>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 animate-fadeInUp" style={{ animationDelay: '1000ms' }}>
         {/* Services Summary */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700 p-6 transition-colors duration-200">
           <div className="flex items-center justify-between mb-6">
@@ -639,7 +639,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Pending & Completed */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />

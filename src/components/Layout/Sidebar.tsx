@@ -19,9 +19,11 @@ import LovedOneLogoDark from '../../assets/LovedOne_dashboard.png';
 interface SidebarProps {
   parlorId: string;
   parlorName: string;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName }) => {
+const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName, isMobile = false, onClose }) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
@@ -64,7 +66,9 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName }) => {
   }, [parlorId]);
 
   return (
-    <div className="w-64 bg-white dark:bg-slate-900 text-slate-900 dark:text-white h-full flex flex-col border-r border-slate-200 dark:border-slate-700 animate-slideInLeft transition-all duration-300 relative">
+    <div className={`w-64 lg:w-64 bg-white dark:bg-slate-900 text-slate-900 dark:text-white h-full flex flex-col border-r border-slate-200 dark:border-slate-700 animate-slideInLeft transition-all duration-300 relative ${
+      isMobile ? 'fixed inset-y-0 left-0 z-50' : ''
+    }`}>
       {/* Logo */}
       <div className="p-6 border-b border-slate-200 dark:border-slate-700 animate-fadeIn">
         <div className="flex items-center space-x-3">
@@ -92,6 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName }) => {
               <li key={item.id} className="animate-fadeInUp relative group" style={{ animationDelay: `${index * 150}ms` }}>
                 <Link
                   to={item.path}
+                  onClick={isMobile ? onClose : undefined}
                   className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-left transition-all duration-300 transform hover:scale-105 hover:translate-x-1 ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-lg'
