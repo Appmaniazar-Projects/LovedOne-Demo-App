@@ -8,7 +8,6 @@ import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import Dashboard from './components/Dashboard/Dashboard';
 import Clients from './components/Clients/Clients';
-import Cases from './components/Cases/Cases';
 import CasesBoard from './components/Cases/CasesBoard';
 import Payments from './components/Payments/Payments';
 import Services from './components/Services/Services';
@@ -297,10 +296,9 @@ function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="clients" element={<Clients />} />
-        <Route path="clients/:id" element={<ClientDetails />} />
-        <Route path="cases" element={<Cases />} />
+        <Route path="clients/:clientSlug" element={<ClientDetails />} />
+        <Route path="cases" element={<CasesBoard />} />
         <Route path="payments" element={<Payments />} />
-        <Route path="tasks" element={<CasesBoard />} />
         <Route path="services" element={<Services />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />

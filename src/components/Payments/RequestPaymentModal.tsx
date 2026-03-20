@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { startCheckout } from '@easypaypt/checkout-sdk';
 import { supabase } from '../../supabaseClient'; // Assuming this is the correct path
 import { toast } from 'react-hot-toast';
+import { DeceasedProfile } from '../../types';
 
 interface RequestPaymentModalProps {
   isOpen: boolean;
@@ -12,9 +13,9 @@ interface RequestPaymentModalProps {
 }
 
 // This function now calls our Supabase Edge Function to securely create a checkout session.
-const getCheckoutManifest = async (amount: number, description: string, parlorId: string) => {
+const getCheckoutManifest = async (amount: number, description: string, parlorId: string, caseId?: string) => {
   const { data, error } = await supabase.functions.invoke('create-easypay-checkout', {
-    body: { amount, description, parlorId },
+    body: { amount, description, parlorId, caseId },
   });
 
   if (error) {
@@ -28,6 +29,8 @@ const getCheckoutManifest = async (amount: number, description: string, parlorId
 const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClose, parlorId, onPaymentCreated }) => {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedCaseId, setSelectedCaseId] = useState('');
+  const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [mode, setMode] = useState<'manual' | 'easypay'>('manual');
   const checkoutInstanceRef = useRef<any>(null);
@@ -41,6 +44,55 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (isOpen && parlorId) {
+      fetchCases();
+    } else if (!isOpen) {
+      // Reset form when modal closes
+      setSelectedCaseId('');
+      setCases([]);
+      setAmount('');
+      setDescription('');
+      setMode('manual');
+    }
+  }, [isOpen, parlorId]);
+
+  const fetchCases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cases')
+        .select('id, deceased_name, case_status, client_id, created_at')
+        .eq('parlor_id', parlorId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching cases:', error);
+        return;
+      }
+
+      const mappedCases: DeceasedProfile[] = (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.deceased_name || 'Unnamed case',
+        dateOfBirth: new Date(), // Default value for missing field
+        dateOfDeath: new Date(), // Default value for missing field
+        picture: undefined,
+        serviceType: 'burial' as const, // Default value
+        serviceTypeId: undefined,
+        status: (row.case_status || 'quote') as any,
+        assignedDirector: '',
+        clientId: row.client_id || '',
+        planId: undefined,
+        culturalRequirements: undefined,
+        createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+        updatedAt: new Date(),
+      }));
+
+      setCases(mappedCases);
+    } catch (error) {
+      console.error('Error fetching cases:', error);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -69,7 +121,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             method: 'eft',
             status: 'pending',
             transaction_id: null,
-            case_id: null,
+            case_id: selectedCaseId || null,
             parlor_id: parlorId,
           })
           .select('id')
@@ -87,7 +139,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
         return;
       }
 
-      const manifest = await getCheckoutManifest(parsedAmount, description, parlorId);
+      const manifest = await getCheckoutManifest(parsedAmount, description, parlorId, selectedCaseId || undefined);
       const transactionId = (manifest as any)?.transaction_id as string | undefined;
 
       if (checkoutInstanceRef.current) {
@@ -177,6 +229,25 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
                 required
               />
+            </div>
+
+            <div>
+              <label htmlFor="case" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                Related Case (Optional)
+              </label>
+              <select
+                id="case"
+                value={selectedCaseId}
+                onChange={(e) => setSelectedCaseId(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+              >
+                <option value="">No case selected</option>
+                {cases.map((caseItem) => (
+                  <option key={caseItem.id} value={caseItem.id}>
+                    {caseItem.name} - {caseItem.status.charAt(0).toUpperCase() + caseItem.status.slice(1)}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

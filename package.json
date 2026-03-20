@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@easypaypt/checkout-sdk": "^2.8.0",
+    "@googlemaps/js-api-loader": "^2.0.2",
+    "@googlemaps/react-wrapper": "^1.2.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/supabase-js": "^2.43.4",

@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   Users, 
-  FileText, 
   CreditCard, 
   CheckSquare, 
   Calendar,
@@ -36,9 +35,8 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName, isMobile = fals
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${parlorId}/dashboard` },
     { id: 'clients', label: 'Clients', icon: Users, path: `/${parlorId}/clients` },
-    { id: 'cases', label: 'Cases', icon: FileText, path: `/${parlorId}/cases` },
+    { id: 'cases', label: 'Cases', icon: CheckSquare, path: `/${parlorId}/cases` },
     { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${parlorId}/payments` },
-    { id: 'tasks', label: 'Cases Board', icon: CheckSquare, path: `/${parlorId}/tasks` },
     { id: 'services', label: 'Services', icon: Calendar, path: `/${parlorId}/services` },
     { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${parlorId}/reports` },
     { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${parlorId}/notifications` },

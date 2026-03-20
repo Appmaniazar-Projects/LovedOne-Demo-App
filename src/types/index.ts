@@ -7,6 +7,9 @@ export interface Client {
   relationship: string;
   culturalPreferences?: string;
   profilePictureUrl?: string;
+  planId?: string | null;
+  status: 'active' | 'lapsed' | 'deceased';
+  parlorId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +53,7 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   transactionId?: string;
   caseId?: string | null;
+  clientId?: string | null;
   description: string;
   createdAt: Date;
   updatedAt: Date;
@@ -113,4 +117,29 @@ export interface Analytics {
   avgCaseValue: number;
   taskCompletionRate: number;
   pendingPayments: number;
+}
+
+export interface Plan {
+  id: string;
+  parlor_id: string;
+  name: string;
+  monthly_premium: number;
+  cover_amount: number;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Dependant {
+  id: string;
+  clientId: string;
+  name: string;
+  relationship: string;
+  dateOfBirth?: Date;
+  contactNumber?: string;
+  email?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

@@ -116,6 +116,9 @@ const Cases: React.FC = () => {
         relationship: row.relationship || '',
         culturalPreferences: row.cultural_preferences || undefined,
         profilePictureUrl: row.profile_picture_url || undefined,
+        planId: row.plan_id || null,
+        status: row.status || 'active',
+        parlorId: row.parlor_id || '',
         createdAt: row.created_at ? new Date(row.created_at) : new Date(),
         updatedAt: row.updated_at ? new Date(row.updated_at) : new Date()
       }));

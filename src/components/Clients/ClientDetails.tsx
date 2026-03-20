@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { ArrowLeft, Phone, Mail, MapPin, User as UserIcon, Calendar, Edit, Save, X } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, User as UserIcon, Edit, Save, X, Plus, Calendar } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import ClientDocuments from './ClientDocuments';
+import { getClientBySlug } from '../../utils/slugify';
+import CreateCaseModal from '../Cases/CreateCaseModal';
 
 interface Client {
   id: string;
@@ -19,7 +21,7 @@ interface Client {
 }
 
 const ClientDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { clientSlug } = useParams<{ clientSlug: string }>();
   const [client, setClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Partial<Client> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -29,6 +31,8 @@ const ClientDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showCreateCaseModal, setShowCreateCaseModal] = useState(false);
+  const [dependants, setDependants] = useState<any[]>([]);
   const navigate = useNavigate();
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,13 +41,13 @@ const ClientDetails: React.FC = () => {
     const file = e.target.files[0];
     
     // Check if this is a mock client
-    if (id?.startsWith('mock-client-')) {
+    if (client?.id?.startsWith('mock-client-')) {
       toast.error('Profile picture upload is not available in demo mode');
       return;
     }
     
     const fileExt = file.name.split('.').pop();
-    const fileName = `${id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const fileName = `${client?.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
     const filePath = `profile-pictures/${fileName}`;
     
     setUploading(true);
@@ -64,7 +68,7 @@ const ClientDetails: React.FC = () => {
       const { error: updateError } = await supabase
         .from('clients')
         .update({ profile_picture_url: publicUrl })
-        .eq('id', id);
+        .eq('id', client?.id);
       
       if (updateError) throw updateError;
       
@@ -112,44 +116,41 @@ const ClientDetails: React.FC = () => {
 
   useEffect(() => {
     const fetchClient = async () => {
-      if (!id) {
-        setError('No client ID provided');
+      if (!clientSlug) {
+        setError('No client slug provided');
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
+        console.log('Fetching client for slug:', clientSlug);
         
-        // Check if this is a mock client (ID starts with 'mock-client-')
-        if (id.startsWith('mock-client-')) {
-          console.log('Fetching mock client:', id);
-          const { getMockClients } = await import('../../data/mockClients');
-          const mockClients = getMockClients();
-          const mockClient = mockClients.find(c => c.id === id);
-          
-          if (!mockClient) {
-            throw new Error('Mock client not found');
-          }
-          
-          setClient(mockClient);
-          setEditingClient({ ...mockClient });
-          setLoading(false);
-          return;
+        // Use the name-based lookup function
+        const clientData = await getClientBySlug(clientSlug, supabase);
+        
+        console.log('Client data found:', clientData);
+        
+        if (!clientData) {
+          throw new Error(`Client not found for slug: "${clientSlug}". The client may not exist or the URL may be incorrect.`);
         }
-        
-        // Otherwise fetch from Supabase
-        const { data, error } = await supabase
-          .from('clients')
+
+        setClient(clientData);
+        setEditingClient({ ...clientData });
+
+        // Fetch dependants for this client
+        const { data: dependantsData, error: dependantsError } = await supabase
+          .from('dependants')
           .select('*')
-          .eq('id', id)
-          .single();
+          .eq('client_id', clientData.id);
 
-        if (error) throw error;
-        if (!data) throw new Error('Client not found');
+        if (dependantsError) {
+          console.error('Error fetching dependants:', dependantsError);
+        } else {
+          setDependants(dependantsData || []);
+        }
 
-        setClient(data);
-        setEditingClient({ ...data });
+        console.log('Client data:', clientData); // Debug: Check what fields are available
       } catch (err: any) {
         console.error('Error fetching client:', err);
         setError(err.message || 'Failed to load client details');
@@ -159,7 +160,7 @@ const ClientDetails: React.FC = () => {
     };
 
     fetchClient();
-  }, [id]);
+  }, [clientSlug]);
 
   if (loading) {
     return (
@@ -197,15 +198,15 @@ const ClientDetails: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!editingClient || !id) return;
+    if (!editingClient || !client?.id) return;
     
     setSaving(true);
     try {
       // Check if this is a mock client
-      if (id.startsWith('mock-client-')) {
-        console.log('Updating mock client:', id);
+      if (client?.id?.startsWith('mock-client-')) {
+        console.log('Updating mock client:', client?.id);
         const { updateMockClient } = await import('../../data/mockClients');
-        const updatedClient = updateMockClient(id, {
+        const updatedClient = updateMockClient(client?.id, {
           name: editingClient.name,
           relationship: editingClient.relationship,
           email: editingClient.email,
@@ -238,7 +239,7 @@ const ClientDetails: React.FC = () => {
           cultural_preferences: editingClient.cultural_preferences,
           profile_picture_url: editingClient.profile_picture_url
         })
-        .eq('id', id)
+        .eq('id', client?.id)
         .select()
         .single();
 
@@ -256,7 +257,7 @@ const ClientDetails: React.FC = () => {
   };
 
   const handleDeleteClient = async () => {
-    if (!id || !client) return;
+    if (!client?.id || !client) return;
     if (deleting) return;
 
     const confirmed = window.confirm('Are you sure you want to delete this client? This action cannot be undone.');
@@ -267,7 +268,7 @@ const ClientDetails: React.FC = () => {
       const { error: deleteError } = await supabase
         .from('clients')
         .delete()
-        .eq('id', id);
+        .eq('id', client?.id);
 
       if (deleteError) {
         const message = deleteError.message || 'Failed to delete client';
@@ -326,7 +327,7 @@ const ClientDetails: React.FC = () => {
               </button>
             </>
           )}
-          {(userRole === 'admin' || userRole === 'super_admin') && !id?.startsWith('mock-client-') && (
+          {(userRole === 'admin' || userRole === 'super_admin') && !client?.id?.startsWith('mock-client-') && (
             <button
               onClick={handleDeleteClient}
               disabled={deleting}
@@ -335,6 +336,13 @@ const ClientDetails: React.FC = () => {
               {deleting ? 'Deleting...' : 'Delete Client'}
             </button>
           )}
+          <button
+            onClick={() => setShowCreateCaseModal(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Case
+          </button>
         </div>
       </div>
 
@@ -506,8 +514,24 @@ const ClientDetails: React.FC = () => {
 
       {/* Client Documents Section */}
       <div className="mt-6">
-        <ClientDocuments clientId={id || ''} clientName={client.name} />
+        <ClientDocuments clientId={client?.id || ''} clientName={client.name} />
       </div>
+
+      {/* Create Case Modal */}
+      <CreateCaseModal
+        isOpen={showCreateCaseModal}
+        onClose={() => setShowCreateCaseModal(false)}
+        clientId={client?.id || ''}
+        clientName={client.name}
+        dependants={dependants}
+        onCaseCreated={() => {
+          toast.success('Case created successfully!');
+          setShowCreateCaseModal(false);
+          // Optionally navigate to cases board
+          // navigate('/cases');
+        }}
+        parlorId={'ubunye-funerals'} // TODO: Get from client data once we fix the type
+      />
     </div>
   );
 };

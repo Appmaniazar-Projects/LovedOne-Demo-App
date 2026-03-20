@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Phone, Mail, MapPin, Users, ArrowRight, FileText } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Users, ArrowRight, FileText, Users2, Shield } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../supabaseClient';
 import AddClientModal from './AddClientModal';
 import { useNavigate, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { Plan, Dependant, Payment } from '../../types';
+import { slugify } from '../../utils/slugify';
 
 export interface Client {
   id: string;
@@ -14,9 +16,16 @@ export interface Client {
   phone: string;
   address: string;
   cultural_preferences: string;
+  plan_id?: string | null;
+  status: 'active' | 'lapsed' | 'deceased';
+  parlor_id?: string;
   created_at: string;
   user_id: string | null;
   document_count?: number;
+  plan?: Plan | null;
+  dependants?: Dependant[];
+  payments?: Payment[];
+  lastPayment?: Payment | null;
 }
 
 interface UserProfile {
@@ -89,12 +98,31 @@ const Clients: React.FC = () => {
             filterParlorId = profileData.parlor_id;
           }
 
-          // Fetch all clients for this company/parlor; visibility is controlled
-          // by role on actions (delete/assign), not by parlor-based filters.
+          // Fetch all clients for this company/parlor with related data
           console.log('Fetching all clients for role:', profileData.role);
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
-            .select('*');
+            .select(`
+              *,
+              plans:plan_id (
+                id,
+                name,
+                is_active,
+                description,
+                monthly_premium,
+                cover_amount
+              ),
+              dependants (
+                id,
+                name,
+                relationship,
+                date_of_birth,
+                contact_number,
+                email,
+                notes
+              )
+            `)
+            .order('created_at', { ascending: false });
 
           if (clientsError) {
             console.error('Error fetching clients:', clientsError);
@@ -254,7 +282,7 @@ const Clients: React.FC = () => {
             <div
               key={client.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow cursor-pointer border border-gray-200 dark:border-gray-700"
-              onClick={() => navigate(`${client.id}`)}
+              onClick={() => navigate(`/${resolvedParlorId}/clients/${slugify(client.name)}`)}
             >
               <div className="p-6">
                 <div className="flex justify-between items-start">
@@ -266,18 +294,9 @@ const Clients: React.FC = () => {
                       {client.relationship}
                     </p>
                   </div>
-                  <button
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`${client.id}`);
-                    }}
-                  >
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
                 </div>
 
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-3">
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
                     <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
                     <span className="truncate">{client.email || 'No email'}</span>
@@ -286,9 +305,31 @@ const Clients: React.FC = () => {
                     <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
                     <span>{client.phone || 'No phone'}</span>
                   </div>
-                  <div className="flex items-start text-sm text-gray-600 dark:text-gray-300">
-                    <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                    <span className="line-clamp-2">{client.address || 'No address'}</span>
+                  
+                  {/* Plan */}
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                    <Shield className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                    <span>{client.plan?.name || 'No plan'}</span>
+                  </div>
+                  
+                  {/* Dependants */}
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                    <Users2 className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                    <span>{client.dependants?.length || 0} dependant(s)</span>
+                  </div>
+                  
+                  {/* Status */}
+                  <div className="flex items-center text-sm">
+                    <div className={`w-2 h-2 rounded-full mr-2 ${
+                      client.status === 'active' ? 'bg-green-500' :
+                      client.status === 'lapsed' ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} />
+                    <span className={`font-medium ${
+                      client.status === 'active' ? 'text-green-700 dark:text-green-400' :
+                      client.status === 'lapsed' ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
+                    }`}>
+                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                    </span>
                   </div>
                 </div>
 
@@ -297,7 +338,7 @@ const Clients: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`${client.id}`);
+                        navigate(`/${resolvedParlorId}/clients/${slugify(client.name)}`);
                       }}
                       className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
                     >

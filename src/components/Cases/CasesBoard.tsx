@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Calendar, User, Flag } from 'lucide-react';
+import { Plus, Calendar, User, Flag, X, FileText, Upload, Download, Trash2 } from 'lucide-react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { Client, DeceasedProfile } from '../../types';
+import { slugify } from '../../utils/slugify';
 
 interface StaffProfile {
   id: string;
@@ -75,6 +76,10 @@ const CasesBoard: React.FC = () => {
 
   const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [selectedCase, setSelectedCase] = useState<DeceasedProfile | null>(null);
+  const [showCaseDetailsModal, setShowCaseDetailsModal] = useState(false);
+  const [caseDocuments, setCaseDocuments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [plans, setPlans] = useState<PlanSummary[]>([]);
@@ -197,7 +202,7 @@ const CasesBoard: React.FC = () => {
             .order('created_at', { ascending: false }),
           supabase
             .from('clients')
-            .select('id, name, email, phone, address, relationship, cultural_preferences, profile_picture_url, created_at, updated_at')
+            .select('id, name, email, phone, address, relationship, cultural_preferences, created_at, updated_at')
             .eq('parlor_id', currentParlorId)
             .order('created_at', { ascending: false }),
           supabase
@@ -227,7 +232,9 @@ const CasesBoard: React.FC = () => {
             address: row.address || '',
             relationship: row.relationship || '',
             culturalPreferences: row.cultural_preferences || undefined,
-            profilePictureUrl: row.profile_picture_url || undefined,
+            planId: row.plan_id || null,
+            status: row.status || 'active',
+            parlorId: row.parlor_id || '',
             createdAt: row.created_at ? new Date(row.created_at) : new Date(),
             updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
           }));
@@ -295,17 +302,17 @@ const CasesBoard: React.FC = () => {
     loadData();
   }, [currentParlorId]);
 
+  useEffect(() => {
+    if (showCaseDetailsModal && selectedCase) {
+      fetchCaseDocuments(selectedCase.id);
+    }
+  }, [showCaseDetailsModal, selectedCase]);
+
   const clientNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of clients) map.set(c.id, c.name);
     return map;
   }, [clients]);
-
-  const planNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of plans) map.set(p.id, p.name);
-    return map;
-  }, [plans]);
 
   const getCasesByStatus = (status: CaseStatus) => {
     return cases.filter(c => c.status === status);
@@ -476,14 +483,123 @@ const CasesBoard: React.FC = () => {
     resetForm();
   };
 
+  const fetchCaseDocuments = async (caseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching case documents:', error);
+        return;
+      }
+
+      setCaseDocuments(data || []);
+    } catch (error) {
+      console.error('Error fetching case documents:', error);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    if (!selectedCase) return;
+
+    const file = e.target.files[0];
+    setUploading(true);
+
+    try {
+      // Upload file to Supabase storage
+      const fileName = `${selectedCase.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('case-documents')
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error('Error uploading file:', uploadError);
+        toast.error('Failed to upload file');
+        return;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('case-documents')
+        .getPublicUrl(fileName);
+
+      // Save document record
+      const { error: insertError } = await supabase
+        .from('documents')
+        .insert({
+          name: file.name,
+          type: 'other', // You can enhance this to detect file type
+          url: publicUrl,
+          size: file.size,
+          case_id: selectedCase.id,
+          uploaded_by: 'current-user', // You might want to get actual user ID
+        });
+
+      if (insertError) {
+        console.error('Error saving document record:', insertError);
+        toast.error('Failed to save document');
+        return;
+      }
+
+      toast.success('Document uploaded successfully');
+      fetchCaseDocuments(selectedCase.id);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+    } finally {
+      setUploading(false);
+      // Clear the file input
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', documentId);
+
+      if (error) {
+        console.error('Error deleting document:', error);
+        toast.error('Failed to delete document');
+        return;
+      }
+
+      toast.success('Document deleted successfully');
+      fetchCaseDocuments(selectedCase?.id || '');
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast.error('Failed to delete document');
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const CaseCard: React.FC<{ item: DeceasedProfile }> = ({ item }) => {
+    const handleCaseClick = () => {
+      // Show case details modal
+      setSelectedCase(item);
+      setShowCaseDetailsModal(true);
+    };
     return (
       <div
-        className={`rounded-lg shadow-sm border p-4 hover:shadow-md transition-all ${
+        className={`rounded-lg shadow-sm border p-4 hover:shadow-md transition-all cursor-pointer ${
           theme === 'dark'
             ? 'border-gray-700 bg-gray-800 hover:bg-gray-700/80'
             : 'border-slate-200 bg-white hover:bg-slate-50'
         }`}
+        onClick={handleCaseClick}
       >
         <div className="flex items-start justify-between mb-3">
           <div className="min-w-0">
@@ -494,7 +610,7 @@ const CasesBoard: React.FC = () => {
               {item.clientId ? (clientNameById.get(item.clientId) || 'Policyholder') : 'Policyholder'}
             </p>
             <p className={`text-xs mt-1 truncate ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
-              {item.planId ? (planNameById.get(item.planId) || 'Plan') : 'Plan'}
+              {item.planId ? 'Plan' : 'No Plan'}
             </p>
           </div>
         </div>
@@ -762,6 +878,171 @@ const CasesBoard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Case Details Modal */}
+      {showCaseDetailsModal && selectedCase && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg shadow-2xl w-full max-w-2xl relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setShowCaseDetailsModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Case Details</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Deceased Information</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Name:</span>
+                      <p className="text-gray-900 dark:text-white">{selectedCase.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth:</span>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedCase.dateOfBirth.toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Death:</span>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedCase.dateOfDeath.toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Service Type:</span>
+                      <p className="text-gray-900 dark:text-white capitalize">{selectedCase.serviceType}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Case Information</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Status:</span>
+                      <p className="text-gray-900 dark:text-white capitalize">{selectedCase.status}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Client:</span>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedCase.clientId ? (clientNameById.get(selectedCase.clientId) || 'Unknown') : 'No client assigned'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Assigned Director:</span>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedCase.assignedDirector || 'Unassigned'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Created:</span>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedCase.createdAt.toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedCase.culturalRequirements && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Cultural Requirements</h3>
+                  <p className="text-gray-900 dark:text-white">{selectedCase.culturalRequirements}</p>
+                </div>
+              )}
+
+              {/* Documents Section */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Documents</h3>
+                  <label className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 cursor-pointer flex items-center space-x-1">
+                    <Upload className="w-4 h-4" />
+                    <span>Upload</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                </div>
+
+                {caseDocuments.length === 0 ? (
+                  <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 dark:text-gray-400">No documents uploaded yet</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Upload" to add documents</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {caseDocuments.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {doc.name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatFileSize(doc.size || 0)} • {new Date(doc.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowCaseDetailsModal(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Close
+                </button>
+                {selectedCase.clientId && (
+                  <button
+                    onClick={() => {
+                      const client = clients.find(c => c.id === selectedCase.clientId);
+                      if (client) {
+                        const slug = slugify(client.name);
+                        window.location.href = `/${currentParlorId}/clients/${slug}`;
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    View Client
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
