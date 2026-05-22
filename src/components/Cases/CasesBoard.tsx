@@ -7,6 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { Client, DeceasedProfile } from '../../types';
 import { slugify } from '../../utils/slugify';
+import PaymentStatusBadge from '../Payments/PaymentStatusBadge';
 
 interface StaffProfile {
   id: string;
@@ -25,6 +26,7 @@ interface PlanSummary {
   id: string;
   name: string;
 }
+
 
 const LOCAL_STORAGE_KEY = 'lovedone_cases';
 
@@ -164,6 +166,10 @@ const CasesBoard: React.FC = () => {
         culturalRequirements: row.culturalRequirements || undefined,
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),
+        payment_status: row.payment_status || 'pending',
+        payment_due_date: row.payment_due_date,
+        total_estimated_cost: row.total_estimated_cost,
+        total_actual_cost: row.total_actual_cost,
       })) as DeceasedProfile[];
     } catch {
       return [] as DeceasedProfile[];
@@ -197,7 +203,7 @@ const CasesBoard: React.FC = () => {
         const [casesRes, clientsRes, staffRes, serviceTypesRes, plansRes] = await Promise.all([
           supabase
             .from('cases')
-            .select('id, deceased_name, date_of_birth, date_of_death, picture, case_status, assigned_director, client_id, cultural_requirements, created_at, updated_at, parlor_id, service_type_id, plan_id')
+            .select('id, deceased_name, date_of_birth, date_of_death, picture, case_status, assigned_director, client_id, cultural_requirements, created_at, updated_at, parlor_id, service_type_id, plan_id, payment_status, payment_due_date, total_estimated_cost, total_actual_cost')
             .eq('parlor_id', currentParlorId)
             .order('created_at', { ascending: false }),
           supabase
@@ -287,8 +293,12 @@ const CasesBoard: React.FC = () => {
               clientId: row.client_id || '',
               planId: row.plan_id || undefined,
               culturalRequirements: row.cultural_requirements || undefined,
-              createdAt: row.created_at ? new Date(row.created_at) : new Date(),
-              updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
+              createdAt: new Date(row.created_at),
+              updatedAt: new Date(row.updated_at),
+              payment_status: row.payment_status || 'pending',
+              payment_due_date: row.payment_due_date,
+              total_estimated_cost: row.total_estimated_cost,
+              total_actual_cost: row.total_actual_cost,
             };
           });
           setCases(nextCases);
@@ -612,6 +622,15 @@ const CasesBoard: React.FC = () => {
             <p className={`text-xs mt-1 truncate ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
               {item.planId ? 'Plan' : 'No Plan'}
             </p>
+            {item.payment_status && (
+              <div className="mt-2">
+                <PaymentStatusBadge 
+                  status={item.payment_status}
+                  amountDue={item.total_estimated_cost ? item.total_estimated_cost - (item.total_actual_cost || 0) : undefined}
+                  totalAmount={item.total_estimated_cost}
+                />
+              </div>
+            )}
           </div>
         </div>
 

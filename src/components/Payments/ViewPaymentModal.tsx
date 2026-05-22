@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Payment } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -12,6 +12,27 @@ interface ViewPaymentModalProps {
 
 const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, payment }) => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      if (!payment?.clientId) return;
+      try {
+        const { data } = await supabase
+          .from('client_documents')
+          .select('*')
+          .eq('client_id', payment.clientId)
+          .eq('document_type', 'proof_of_payment')
+          .order('uploaded_at', { ascending: false });
+
+        if (data) setDocuments(data as any[]);
+      } catch (e) {
+        console.error('Failed to fetch payment documents', e);
+      }
+    };
+
+    fetchDocs();
+  }, [payment]);
 
   if (!isOpen || !payment) return null;
 
@@ -109,6 +130,10 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                   {payment.method === 'card' ? 'Credit/Debit Card' : 
                    payment.method === 'eft' ? 'Bank Transfer' : 
                    payment.method === 'snapscan' ? 'SnapScan' :
+                   payment.method === 'voucher' ? 'Voucher' :
+                   payment.method === 'payat' ? 'Pay@' :
+                   payment.method === 'pay_by_bank' || payment.method === 'paybybank' ? 'Pay By Bank' :
+                   payment.method === 'pop' ? 'Proof of Payment (POP)' :
                    payment.method?.charAt(0).toUpperCase() + payment.method?.slice(1) || 'N/A'}
                 </p>
               </div>
@@ -134,6 +159,22 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                 {payment.createdAt ? formatDate(payment.createdAt) : 'N/A'}
               </p>
             </div>
+
+            {documents.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-slate-500 dark:text-gray-300 mb-1">Proofs / Documents</h3>
+                <ul className="space-y-2">
+                  {documents.map((doc) => (
+                    <li key={doc.id} className="text-sm">
+                      <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline">
+                        {doc.file_name}
+                      </a>
+                      <div className="text-xs text-slate-500">Uploaded: {new Date(doc.uploaded_at).toLocaleString()}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           
           <div className="mt-8 flex justify-end">

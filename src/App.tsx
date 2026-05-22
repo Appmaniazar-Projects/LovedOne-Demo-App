@@ -17,6 +17,7 @@ import ProfilePage from './components/Profile/ProfilePage';
 import SettingsPage from './components/Settings/SettingsPage';
 import ParlorDetails from './components/Parlor/ParlorDetails';
 import ClientDetails from './components/Clients/ClientDetails';
+import PaymentAlertDashboard from './components/Payments/PaymentAlertDashboard';
 
 const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
@@ -299,6 +300,7 @@ function App() {
         <Route path="clients/:clientSlug" element={<ClientDetails />} />
         <Route path="cases" element={<CasesBoard />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="payment-alerts" element={<PaymentAlertDashboard />} />
         <Route path="services" element={<Services />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />

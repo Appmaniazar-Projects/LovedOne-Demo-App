@@ -153,6 +153,10 @@ Generated on: ${new Date().toLocaleString('en-US')}
     snapscan: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
     card: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400',
     payat: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
+    voucher: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400',
+    pay_by_bank: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
+    paybybank: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
+    pop: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-400',
     bank_transfer: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
     default: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
   };
@@ -324,6 +328,11 @@ Generated on: ${new Date().toLocaleString('en-US')}
               <option value="easypay">EasyPay</option>
               <option value="snapscan">SnapScan</option>
               <option value="card">Card</option>
+              <option value="voucher">Voucher</option>
+              <option value="payat">Pay@</option>
+              <option value="pay_by_bank">Pay By Bank</option>
+              <option value="paybybank">Pay By Bank (alt)</option>
+              <option value="pop">Proof of Payment (POP)</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700 dark:text-gray-300 transition-transform duration-300 group-hover:scale-110">
               <svg className="fill-current h-4 w-4 transition-transform duration-300 group-hover:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -377,6 +386,11 @@ Generated on: ${new Date().toLocaleString('en-US')}
                           case 'eft': return 'BANK TRANSFER';
                           case 'easypay': return 'EASYPAY';
                           case 'snapscan': return 'SNAPSCAN';
+                          case 'voucher': return 'VOUCHER';
+                          case 'payat': return 'PAY@';
+                          case 'pay_by_bank': return 'BANK TRANSFER';
+                          case 'paybybank': return 'BANK TRANSFER';
+                          case 'pop': return 'PROOF OF PAYMENT';
                           default:
                             // Fallback for any other method not explicitly handled
                             const unhandledMethod = payment.method as string;

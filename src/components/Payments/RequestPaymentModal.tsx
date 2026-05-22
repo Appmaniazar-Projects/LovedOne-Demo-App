@@ -33,6 +33,8 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
   const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [mode, setMode] = useState<'manual' | 'easypay'>('manual');
+  const [selectedMethod, setSelectedMethod] = useState<'eft' | 'card' | 'voucher' | 'payat' | 'pay_by_bank' | 'paybybank' | 'pop' | 'easypay' | 'snapscan'>('eft');
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const checkoutInstanceRef = useRef<any>(null);
 
   useEffect(() => {
@@ -113,12 +115,12 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
       }
 
       if (mode === 'manual') {
-        const { error } = await supabase
+        const { data: createdPayment, error } = await supabase
           .from('payments')
           .insert({
             amount: parsedAmount,
             description,
-            method: 'eft',
+            method: selectedMethod,
             status: 'pending',
             transaction_id: null,
             case_id: selectedCaseId || null,
@@ -131,6 +133,60 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
           console.error('Failed to create manual payment:', error);
           toast.error(error.message || 'Failed to create payment request.');
           return;
+        }
+
+        // If a proof file was provided (POP), upload to storage and create a client document if possible
+        if (proofFile) {
+          try {
+            const targetCase = cases.find(c => c.id === (selectedCaseId || ''));
+            const clientId = targetCase?.clientId || null;
+            const filePath = `${clientId || parlorId}/${Date.now()}_${proofFile.name}`;
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('client-documents')
+              .upload(filePath, proofFile);
+
+            if (uploadError) {
+              console.error('Failed to upload proof file:', uploadError);
+              toast.error('Failed to upload proof file, but payment was created.');
+            } else {
+              const { data: publicUrlData } = supabase.storage.from('client-documents').getPublicUrl(filePath);
+
+              // Create client document record when a client is associated
+              if (clientId) {
+                // get current user id for uploaded_by
+                let uploadedBy: string | null = null;
+                try {
+                  const userRes = await supabase.auth.getUser();
+                  uploadedBy = (userRes.data as any)?.user?.id || null;
+                } catch (e) {
+                  // ignore
+                }
+
+                const { error: docError } = await supabase
+                  .from('client_documents')
+                  .insert({
+                    client_id: clientId,
+                    document_type: 'proof_of_payment',
+                    file_name: proofFile.name,
+                    file_url: publicUrlData.publicUrl,
+                    file_size: proofFile.size,
+                    uploaded_by: uploadedBy,
+                    notes: `Proof for payment ${createdPayment?.id || ''}`
+                  });
+
+                if (docError) {
+                  console.error('Failed to create client document record:', docError);
+                  toast('Payment created, file uploaded, but failed to attach document record.');
+                }
+              } else {
+                toast.success('Payment created and proof uploaded.');
+              }
+            }
+          } catch (e) {
+            console.error('Error uploading proof file:', e);
+            toast.error('Payment created but failed to upload proof file.');
+          }
         }
 
         toast.success('Manual payment request created.');
@@ -213,6 +269,41 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
                 <option value="easypay">EasyPay (checkout)</option>
               </select>
             </div>
+
+            {mode === 'manual' && (
+              <div>
+                <label htmlFor="method" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                  Manual Method
+                </label>
+                <select
+                  id="method"
+                  value={selectedMethod}
+                  onChange={(e) => setSelectedMethod(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+                >
+                  <option value="eft">Bank Transfer (EFT)</option>
+                  <option value="card">Debit / Credit Card (offline)</option>
+                  <option value="voucher">Voucher</option>
+                  <option value="payat">Pay@</option>
+                  <option value="pay_by_bank">Pay By Bank</option>
+                  <option value="paybybank">Pay By Bank (alt)</option>
+                  <option value="pop">Upload Proof of Payment (POP)</option>
+                </select>
+
+                {selectedMethod === 'pop' && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Proof of Payment</label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setProofFile(e.target.files ? e.target.files[0] : null)}
+                      className="w-full text-sm text-slate-700"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Upload an image or PDF of the proof of payment.</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">

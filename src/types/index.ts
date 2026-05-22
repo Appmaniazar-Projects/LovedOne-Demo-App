@@ -29,6 +29,50 @@ export interface DeceasedProfile {
   culturalRequirements?: string;
   createdAt: Date;
   updatedAt: Date;
+  payment_status?: 'pending' | 'partial' | 'completed' | 'overdue';
+  payment_due_date?: string;
+  total_estimated_cost?: number;
+  total_actual_cost?: number;
+}
+
+export interface PaymentAlert {
+  id: string;
+  caseId: string;
+  parlorId: string;
+  alertLevel: 'critical' | 'warning' | 'info';
+  message: string;
+  isResolved: boolean;
+  createdAt: Date;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+}
+
+export interface Case {
+  id: string;
+  client_id?: string;
+  deceased_name: string;
+  date_of_death: Date;
+  case_status: string;
+  notes?: string;
+  case_number?: string;
+  date_of_birth?: Date;
+  parlor_id: string;
+  service_type_id?: string;
+  cultural_requirements?: string;
+  picture?: string;
+  assigned_director?: string;
+  service_date?: Date;
+  plan_id?: string;
+  total_estimated_cost?: number;
+  total_actual_cost?: number;
+  
+  payment_status: 'pending' | 'partial' | 'completed' | 'overdue';
+  payment_due_date?: Date;
+  payment_alert_sent: boolean;
+  last_payment_reminder?: Date;
+  
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Task {
@@ -49,7 +93,7 @@ export interface Task {
 export interface Payment {
   id: string;
   amount: number;
-  method: 'eft' | 'easypay' | 'snapscan' | 'card';
+  method: 'eft' | 'easypay' | 'snapscan' | 'card' | 'voucher' | 'payat' | 'pay_by_bank' | 'paybybank' | 'pop';
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   transactionId?: string;
   caseId?: string | null;
