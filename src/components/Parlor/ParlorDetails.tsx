@@ -34,21 +34,11 @@ const ParlorDetails: React.FC = () => {
         setLoading(true);
         console.log('Fetching clients for parlor ID:', id);
         
-        // First, get the parlor slug from the id
-        const { data: parlor, error: parlorError } = await supabase
-          .from('parlors')
-          .select('slug')
-          .eq('id', id)
-          .single();
-          
-        if (parlorError) throw parlorError;
-        if (!parlor) throw new Error('Parlor not found');
-        
-        // Then fetch clients for this parlor
+        // Fetch clients for this parlor by its ID
         const { data, error: clientsError } = await supabase
           .from('clients')
           .select('*')
-          .eq('parlor_slug', parlor.slug);
+          .eq('parlor_id', id);
           
         if (clientsError) throw clientsError;
         

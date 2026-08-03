@@ -21,7 +21,8 @@ interface Client {
 }
 
 const ClientDetails: React.FC = () => {
-  const { clientSlug } = useParams<{ clientSlug: string }>();
+  const { clientSlug, parlorId: parlorKey } = useParams<{ clientSlug: string; parlorId: string }>();
+  const parlorId = parlorKey || undefined;
   const [client, setClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Partial<Client> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -124,11 +125,9 @@ const ClientDetails: React.FC = () => {
 
       try {
         setLoading(true);
-        console.log('Fetching client for slug:', clientSlug);
+        console.log('Fetching client for slug:', clientSlug, 'parlorId:', parlorId);
         
-        // Use the name-based lookup function
-        const clientData = await getClientBySlug(clientSlug, supabase);
-        
+        const clientData = await getClientBySlug(clientSlug, supabase, parlorId);
         console.log('Client data found:', clientData);
         
         if (!clientData) {

@@ -22,14 +22,17 @@ const LoginPage = () => (
             theme: {
               default: {
                 colors: {
-                  brand: 'rgb(30 41 59)',
-                  brandAccent: 'rgb(51 65 85)',
-                  defaultButtonBackground: 'rgb(30 41 59)',
-                  defaultButtonBackgroundHover: 'rgb(51 65 85)',
-                  inputBackground: 'white',
-                  inputBorder: 'rgb(203 213 225)',
-                  inputBorderHover: 'rgb(148 163 184)',
-                  inputBorderFocus: 'rgb(148 163 184)',
+                  brand: '#FAFAFA',
+                  brandAccent: '#1A867F',
+
+                  defaultButtonBackground: '#FAFAFA',
+                  defaultButtonBackgroundHover: '#1A867F',
+                  defaultButtonText: '#FFFFFF',
+
+                  inputBackground: '#FFFFFF',
+                  inputBorder: '#CBD5E1',
+                  inputBorderHover: '#94A3B8',
+                  inputBorderFocus: '#0F766E',
                 },
                 space: {
                   spaceSmall: '4px',

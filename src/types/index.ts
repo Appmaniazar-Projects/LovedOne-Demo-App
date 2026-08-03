@@ -90,18 +90,7 @@ export interface Task {
   updatedAt: Date;
 }
 
-export interface Payment {
-  id: string;
-  amount: number;
-  method: 'eft' | 'easypay' | 'snapscan' | 'card' | 'voucher' | 'payat' | 'pay_by_bank' | 'paybybank' | 'pop';
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  transactionId?: string;
-  caseId?: string | null;
-  clientId?: string | null;
-  description: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+
 
 export interface Document {
   id: string;
@@ -187,3 +176,4 @@ export interface Dependant {
   createdAt: Date;
   updatedAt: Date;
 }
+

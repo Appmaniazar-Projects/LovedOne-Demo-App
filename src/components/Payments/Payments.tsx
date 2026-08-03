@@ -3,7 +3,7 @@ import { Plus, Search, CreditCard, TrendingUp, AlertCircle, CheckCircle, Loader2
 import RequestPaymentModal from './RequestPaymentModal';
 import ViewPaymentModal from './ViewPaymentModal';
 import { supabase } from '../../supabaseClient';
-import { Payment } from '../../types';
+import { Payment } from '../../types/payments';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCountUp } from '../../hooks/useCountUp';
 import { useOutletContext, useParams } from 'react-router-dom';

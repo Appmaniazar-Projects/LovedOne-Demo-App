@@ -91,16 +91,19 @@ const Clients: React.FC = () => {
         if (profileData) {
           setUserProfile(profileData);
 
-          // Determine which parlor ID to use when creating/assigning, but
-          // do not use it to limit which clients are visible.
+          // Determine the parlor to scope this page to.
           let filterParlorId = resolvedParlorId;
           if (!filterParlorId && profileData.parlor_id) {
             filterParlorId = profileData.parlor_id;
           }
 
-          // Fetch all clients for this company/parlor with related data
-          console.log('Fetching all clients for role:', profileData.role);
-          const { data: clientsData, error: clientsError } = await supabase
+          if (!filterParlorId) {
+            throw new Error('No parlor selected. Please choose a parlor before viewing clients.');
+          }
+
+          // Fetch clients scoped to this parlor with related data
+          console.log('Fetching clients for parlor:', filterParlorId, 'role:', profileData.role);
+          const clientsQuery = supabase
             .from('clients')
             .select(`
               *,
@@ -122,7 +125,10 @@ const Clients: React.FC = () => {
                 notes
               )
             `)
+            .eq('parlor_id', filterParlorId)
             .order('created_at', { ascending: false });
+
+          const { data: clientsData, error: clientsError } = await clientsQuery;
 
           if (clientsError) {
             console.error('Error fetching clients:', clientsError);

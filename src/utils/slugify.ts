@@ -24,20 +24,24 @@ export const slugify = (name: string): string => {
  * Find client by slug (name-based lookup)
  * This will need to be used in the component to query the database
  */
-export const getClientBySlug = async (slug: string, supabase: any) => {
-  console.log('Looking up client with slug:', slug);
+export const getClientBySlug = async (slug: string, supabase: any, parlorId?: string) => {
+  console.log('Looking up client with slug:', slug, 'parlorId:', parlorId);
   
   // Convert slug back to a more readable name format for searching
   const nameFromSlug = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   console.log('Converted slug to name:', nameFromSlug);
-  
-  // Try to find client by exact name match first
-  const { data: exactMatch, error: exactError } = await supabase
+
+  const exactQuery = supabase
     .from('clients')
     .select('*')
     .ilike('name', nameFromSlug)
     .single();
 
+  if (parlorId) {
+    exactQuery.eq('parlor_id', parlorId);
+  }
+
+  const { data: exactMatch, error: exactError } = await exactQuery;
   console.log('Exact match result:', exactMatch, exactError);
 
   if (exactMatch && !exactError) {
@@ -45,36 +49,44 @@ export const getClientBySlug = async (slug: string, supabase: any) => {
   }
 
   // If no exact match, try a broader search
-  const { data: clients, error: searchError } = await supabase
+  const searchQuery = supabase
     .from('clients')
     .select('*')
     .ilike('name', `%${nameFromSlug}%`)
     .limit(5);
 
+  if (parlorId) {
+    searchQuery.eq('parlor_id', parlorId);
+  }
+
+  const { data: clients, error: searchError } = await searchQuery;
   console.log('Search result:', clients, searchError);
 
   if (searchError) {
     throw searchError;
   }
 
-  // Return the first match or null
   if (clients && clients.length > 0) {
     return clients[0];
   }
 
   // Fallback: try to find a client by checking if slug matches any part of the name
-  const { data: allClients, error: allClientsError } = await supabase
+  const allClientsQuery = supabase
     .from('clients')
     .select('*')
-    .limit(10);
+    .limit(20);
 
+  if (parlorId) {
+    allClientsQuery.eq('parlor_id', parlorId);
+  }
+
+  const { data: allClients, error: allClientsError } = await allClientsQuery;
   console.log('All clients fallback:', allClients, allClientsError);
 
   if (allClientsError) {
     throw allClientsError;
   }
 
-  // Try to match slug against any part of client names
   const slugLower = slug.toLowerCase();
   const matchedClient = allClients?.find((client: any) => 
     client.name.toLowerCase().includes(slugLower) ||
