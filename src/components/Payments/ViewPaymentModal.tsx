@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Payment, MANUALLY_UPDATABLE_METHODS } from '../../types';
+import {
+  Payment,
+  MANUALLY_UPDATABLE_METHODS,
+  getPaymentMethodLabel,
+  isPayAtMethod,
+} from '../../types/payments';
 import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 
@@ -58,20 +63,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
     }
   };
 
-  const methodLabel = (method: string) => {
-    switch (method) {
-      case 'card': return 'Credit/Debit Card';
-      case 'eft': return 'Bank Transfer';
-      case 'snapscan': return 'SnapScan';
-      case 'voucher': return 'Voucher';
-      case 'payat': return 'Pay@';
-      case 'pay_by_bank': return 'Pay By Bank';
-      case 'pop': return 'Proof of Payment (POP)';
-      case 'cash': return 'Cash';
-      case 'debit_order': return 'Debit Order';
-      default: return method?.charAt(0).toUpperCase() + method?.slice(1) || 'N/A';
-    }
-  };
+  const methodLabel = getPaymentMethodLabel;
 
   const updatePaymentStatus = async (nextStatus: Payment['status']) => {
     if (!payment?.id) return;
@@ -134,7 +126,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
               {payment.paymentReference && (
                 <div>
                   <h3 className="text-sm font-medium text-slate-500 dark:text-gray-300 mb-1">
-                    {payment.method === 'payat' ? 'Pay@ Reference' : 'Reference'}
+                    {isPayAtMethod(payment.method) ? 'Pay@ Reference' : 'Reference'}
                   </h3>
                   <p className="text-lg text-slate-900 dark:text-white font-mono">{payment.paymentReference}</p>
                 </div>
@@ -206,7 +198,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
               )}
               {!canManuallyUpdate && (
                 <p className="text-sm text-slate-500 dark:text-gray-400 mr-2">
-                  {payment.method === 'payat'
+                  {isPayAtMethod(payment.method)
                     ? 'This payment updates automatically once Pay@ confirms it.'
                     : 'This payment is managed by the provider and updates automatically.'}
                 </p>

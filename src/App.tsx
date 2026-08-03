@@ -18,6 +18,7 @@ import SettingsPage from './components/Settings/SettingsPage';
 import ParlorDetails from './components/Parlor/ParlorDetails';
 import ClientDetails from './components/Clients/ClientDetails';
 import PaymentAlertDashboard from './components/Payments/PaymentAlertDashboard';
+import NotFound from './components/Layout/NotFound';
 
 const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
@@ -307,6 +308,7 @@ function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

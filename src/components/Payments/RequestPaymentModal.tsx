@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { startCheckout } from '@easypaypt/checkout-sdk';
-import { supabase } from '../../supabaseClient'; // Assuming this is the correct path
+import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 import { DeceasedProfile } from '../../types';
+import { normalizePaymentMethod, PaymentMethod } from '../../types/payments';
 
 interface RequestPaymentModalProps {
   isOpen: boolean;
@@ -13,39 +13,14 @@ interface RequestPaymentModalProps {
 }
 
 // This function now calls our Supabase Edge Function to securely create a checkout session.
-const getCheckoutManifest = async (amount: number, description: string, parlorId: string, caseId?: string) => {
-  const { data, error } = await supabase.functions.invoke('create-easypay-checkout', {
-    body: { amount, description, parlorId, caseId },
-  });
-
-  if (error) {
-    console.error('Failed to invoke Supabase function:', error);
-    throw new Error(error.message || 'Failed to create checkout session');
-  }
-
-  return data;
-};
-
 const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClose, parlorId, onPaymentCreated }) => {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [mode, setMode] = useState<'manual' | 'easypay'>('manual');
-  const [selectedMethod, setSelectedMethod] = useState<'eft' | 'card' | 'voucher' | 'payat' | 'pay_by_bank' | 'paybybank' | 'pop' | 'easypay' | 'snapscan'>('eft');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('eft_pop');
   const [proofFile, setProofFile] = useState<File | null>(null);
-  const checkoutInstanceRef = useRef<any>(null);
-
-  useEffect(() => {
-    // Clean up the checkout form when the modal is closed or component unmounts
-    return () => {
-      if (checkoutInstanceRef.current) {
-        checkoutInstanceRef.current.unmount();
-        checkoutInstanceRef.current = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (isOpen && parlorId) {
@@ -56,7 +31,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
       setCases([]);
       setAmount('');
       setDescription('');
-      setMode('manual');
+      setSelectedMethod('eft_pop');
     }
   }, [isOpen, parlorId]);
 
@@ -103,10 +78,10 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
     setIsProcessing(true);
 
     try {
-       if (!parlorId) {
-         toast.error('Parlor is not loaded yet. Please try again in a moment.');
-         return;
-       }
+      if (!parlorId) {
+        toast.error('Parlor is not loaded yet. Please try again in a moment.');
+        return;
+      }
 
       const parsedAmount = parseFloat(amount);
       if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -114,124 +89,81 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
         return;
       }
 
-      if (mode === 'manual') {
-        const { data: createdPayment, error } = await supabase
-          .from('payments')
-          .insert({
-            amount: parsedAmount,
-            description,
-            method: selectedMethod,
-            status: 'pending',
-            transaction_id: null,
-            case_id: selectedCaseId || null,
-            parlor_id: parlorId,
-          })
-          .select('id')
-          .single();
+      const normalizedMethod = normalizePaymentMethod(selectedMethod);
+      const { data: createdPayment, error } = await supabase
+        .from('payments')
+        .insert({
+          amount: parsedAmount,
+          description,
+          method: normalizedMethod,
+          status: 'pending',
+          transaction_id: null,
+          case_id: selectedCaseId || null,
+          parlor_id: parlorId,
+        })
+        .select('id')
+        .single();
 
-        if (error) {
-          console.error('Failed to create manual payment:', error);
-          toast.error(error.message || 'Failed to create payment request.');
-          return;
-        }
-
-        // If a proof file was provided (POP), upload to storage and create a client document if possible
-        if (proofFile) {
-          try {
-            const targetCase = cases.find(c => c.id === (selectedCaseId || ''));
-            const clientId = targetCase?.clientId || null;
-            const filePath = `${clientId || parlorId}/${Date.now()}_${proofFile.name}`;
-
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('client-documents')
-              .upload(filePath, proofFile);
-
-            if (uploadError) {
-              console.error('Failed to upload proof file:', uploadError);
-              toast.error('Failed to upload proof file, but payment was created.');
-            } else {
-              const { data: publicUrlData } = supabase.storage.from('client-documents').getPublicUrl(filePath);
-
-              // Create client document record when a client is associated
-              if (clientId) {
-                // get current user id for uploaded_by
-                let uploadedBy: string | null = null;
-                try {
-                  const userRes = await supabase.auth.getUser();
-                  uploadedBy = (userRes.data as any)?.user?.id || null;
-                } catch (e) {
-                  // ignore
-                }
-
-                const { error: docError } = await supabase
-                  .from('client_documents')
-                  .insert({
-                    client_id: clientId,
-                    document_type: 'proof_of_payment',
-                    file_name: proofFile.name,
-                    file_url: publicUrlData.publicUrl,
-                    file_size: proofFile.size,
-                    uploaded_by: uploadedBy,
-                    notes: `Proof for payment ${createdPayment?.id || ''}`
-                  });
-
-                if (docError) {
-                  console.error('Failed to create client document record:', docError);
-                  toast('Payment created, file uploaded, but failed to attach document record.');
-                }
-              } else {
-                toast.success('Payment created and proof uploaded.');
-              }
-            }
-          } catch (e) {
-            console.error('Error uploading proof file:', e);
-            toast.error('Payment created but failed to upload proof file.');
-          }
-        }
-
-        toast.success('Manual payment request created.');
-        onPaymentCreated?.();
-        onClose();
+      if (error) {
+        console.error('Failed to create manual payment:', error);
+        toast.error(error.message || 'Failed to create payment request.');
         return;
       }
 
-      const manifest = await getCheckoutManifest(parsedAmount, description, parlorId, selectedCaseId || undefined);
-      const transactionId = (manifest as any)?.transaction_id as string | undefined;
+      if (proofFile) {
+        try {
+          const targetCase = cases.find(c => c.id === (selectedCaseId || ''));
+          const clientId = targetCase?.clientId || null;
+          const filePath = `${clientId || parlorId}/${Date.now()}_${proofFile.name}`;
 
-      if (checkoutInstanceRef.current) {
-        checkoutInstanceRef.current.unmount();
-        checkoutInstanceRef.current = null;
+          const { error: uploadError } = await supabase.storage
+            .from('client-documents')
+            .upload(filePath, proofFile);
+
+          if (uploadError) {
+            console.error('Failed to upload proof file:', uploadError);
+            toast.error('Failed to upload proof file, but payment was created.');
+          } else {
+            const { data: publicUrlData } = supabase.storage.from('client-documents').getPublicUrl(filePath);
+
+            if (clientId) {
+              let uploadedBy: string | null = null;
+              try {
+                const userRes = await supabase.auth.getUser();
+                uploadedBy = (userRes.data as any)?.user?.id || null;
+              } catch (e) {
+                // ignore
+              }
+
+              const { error: docError } = await supabase
+                .from('client_documents')
+                .insert({
+                  client_id: clientId,
+                  document_type: 'proof_of_payment',
+                  file_name: proofFile.name,
+                  file_url: publicUrlData.publicUrl,
+                  file_size: proofFile.size,
+                  uploaded_by: uploadedBy,
+                  notes: `Proof for payment ${createdPayment?.id || ''}`
+                });
+
+              if (docError) {
+                console.error('Failed to create client document record:', docError);
+                toast('Payment created, file uploaded, but failed to attach document record.');
+              }
+            } else {
+              toast.success('Payment created and proof uploaded.');
+            }
+          }
+        } catch (e) {
+          console.error('Error uploading proof file:', e);
+          toast.error('Payment created but failed to upload proof file.');
+        }
       }
 
-      checkoutInstanceRef.current = startCheckout(manifest, {
-        id: 'easypay-checkout-form',
-        testing: import.meta.env.DEV,
-        onSuccess: async (result) => {
-          console.log('Payment successful:', result);
-          try {
-            if (transactionId) {
-              const { error: updateError } = await supabase
-                .from('payments')
-                .update({ status: 'completed' })
-                .eq('transaction_id', transactionId);
-
-              if (updateError) {
-                console.error('Failed to update payment status after checkout success:', updateError);
-              }
-            }
-          } catch (e) {
-            console.error('Unexpected error updating payment status after checkout success:', e);
-          }
-
-          toast.success('Payment process completed successfully!');
-          onPaymentCreated?.();
-          onClose();
-        },
-        onClose: () => {
-          console.log('Checkout closed by user.');
-          onClose();
-        }
-      });
+      toast.success('Manual payment request created.');
+      onPaymentCreated?.();
+      onClose();
     } catch (error) {
       console.error('Failed to initiate payment:', error);
       toast.error('Failed to initiate payment. Please try again.');
@@ -256,54 +188,41 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
           
           <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
             <div>
-              <label htmlFor="mode" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                Payment Type
-              </label>
-              <select
-                id="mode"
-                value={mode}
-                onChange={(e) => setMode(e.target.value as 'manual' | 'easypay')}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
-              >
-                <option value="manual">Manual / Offline (no gateway)</option>
-                <option value="easypay">EasyPay (checkout)</option>
-              </select>
+              <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">
+                Pay@ covers most gateway payment methods. Use the manual request below for offline or legacy payment tracking.
+              </p>
             </div>
 
-            {mode === 'manual' && (
-              <div>
-                <label htmlFor="method" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                  Manual Method
-                </label>
-                <select
-                  id="method"
-                  value={selectedMethod}
-                  onChange={(e) => setSelectedMethod(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
-                >
-                  <option value="eft">Bank Transfer (EFT)</option>
-                  <option value="card">Debit / Credit Card (offline)</option>
-                  <option value="voucher">Voucher</option>
-                  <option value="payat">Pay@</option>
-                  <option value="pay_by_bank">Pay By Bank</option>
-                  <option value="paybybank">Pay By Bank (alt)</option>
-                  <option value="pop">Upload Proof of Payment (POP)</option>
-                </select>
+            <div>
+              <label htmlFor="method" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                Manual Method
+              </label>
+              <select
+                id="method"
+                value={selectedMethod}
+                onChange={(e) => setSelectedMethod(e.target.value as any)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+              >
+                <option value="eft">Bank Transfer (EFT)</option>
+                <option value="card">Debit / Credit Card (offline)</option>
+                <option value="voucher">Voucher</option>
+                <option value="payat">Pay@</option>
+                <option value="pop">Upload Proof of Payment (POP)</option>
+              </select>
 
-                {selectedMethod === 'pop' && (
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Proof of Payment</label>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setProofFile(e.target.files ? e.target.files[0] : null)}
-                      className="w-full text-sm text-slate-700"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">Upload an image or PDF of the proof of payment.</p>
-                  </div>
-                )}
-              </div>
-            )}
+              {(selectedMethod === 'pop' || selectedMethod === 'eft_pop' || selectedMethod === 'eft') && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Proof of Payment</label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setProofFile(e.target.files ? e.target.files[0] : null)}
+                    className="w-full text-sm text-slate-700"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Upload an image or PDF of the proof of payment.</p>
+                </div>
+              )}
+            </div>
 
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
@@ -356,11 +275,6 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
               />
             </div>
 
-            {mode === 'easypay' && (
-              <p className="text-sm text-slate-800 dark:text-gray-200">
-                This will open the EasyPay checkout flow.
-              </p>
-            )}
 
             <div id="form-actions" className="flex justify-end space-x-3 pt-2">
               <button
@@ -380,7 +294,6 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
             </div>
           </form>
 
-          <div id="easypay-checkout-form" className="mt-4"></div>
         </div>
       </div>
     </div>

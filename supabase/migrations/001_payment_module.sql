@@ -12,7 +12,7 @@ create table if not exists payments (
   description text not null,
   amount numeric(12,2) not null check (amount > 0),
   method text not null check (method in
-    ('cash','eft','pop','payat','card','pay_by_bank','debit_order','snapscan','easypay')),
+    ('cash','eft_pop','pay_at','eft','pop','payat','card','pay_by_bank','debit_order','snapscan','easypay')),
   status text not null default 'pending' check (status in
     ('pending','partial','completed','overdue','failed','refunded','reversed','expired')),
   transaction_id text,

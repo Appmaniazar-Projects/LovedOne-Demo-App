@@ -1,24 +1,81 @@
 
 
 
-export type PaymentMethod = 'cash' | 'eft_pop' | 'pay_at';
+export type PaymentMethodCanonical = 'cash' | 'eft_pop' | 'pay_at';
+export type PaymentMethodLegacy =
+  | 'eft'
+  | 'pop'
+  | 'payat'
+  | 'easypay'
+  | 'card'
+  | 'snapscan'
+  | 'voucher'
+  | 'pay_by_bank'
+  | 'paybybank'
+  | 'bank_transfer';
+
+export type PaymentMethod = PaymentMethodCanonical | PaymentMethodLegacy;
 
 export type PaymentStatus =
   | 'pending'
-  | 'awaiting_confirmation' // eft_pop: proof uploaded, not yet verified
-  | 'paid'
+  | 'partial'
+  | 'completed'
+  | 'overdue'
   | 'failed'
-  | 'expired'
   | 'refunded'
+  | 'reversed'
+  | 'expired'
+  | 'paid'
   | 'cancelled';
 
-export const MANUALLY_UPDATABLE_METHODS: PaymentMethod[] = ['cash', 'eft_pop'];
-export const GATEWAY_MANAGED_METHODS: PaymentMethod[] = ['pay_at'];
+export const MANUALLY_UPDATABLE_METHODS: PaymentMethod[] = ['cash', 'eft_pop', 'eft', 'pop'];
+export const GATEWAY_MANAGED_METHODS: PaymentMethod[] = ['pay_at', 'payat'];
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Cash',
   eft_pop: 'EFT / Proof of Payment',
   pay_at: 'Pay@ (Card, Instant EFT, SnapScan, Retail Cash & more)',
+  eft: 'EFT (legacy)',
+  pop: 'Proof of Payment (POP)',
+  payat: 'Pay@ (legacy)',
+  easypay: 'EasyPay (legacy)',
+  card: 'Card',
+  snapscan: 'SnapScan',
+  voucher: 'Voucher',
+  pay_by_bank: 'Pay By Bank',
+  paybybank: 'Pay By Bank (legacy)',
+  bank_transfer: 'Bank Transfer',
+};
+
+const PAYMENT_METHOD_CANONICAL_ALIAS: Partial<Record<PaymentMethodLegacy, PaymentMethod>> = {
+  eft: 'eft_pop',
+  pop: 'eft_pop',
+  payat: 'pay_at',
+  easypay: 'pay_at',
+  paybybank: 'pay_by_bank',
+};
+
+export const normalizePaymentMethod = (method: string | undefined | null): PaymentMethod | string => {
+  const normalized = method?.toString().trim().toLowerCase();
+  if (!normalized) return method || '';
+
+  return PAYMENT_METHOD_CANONICAL_ALIAS[normalized as PaymentMethodLegacy] || normalized;
+};
+
+export const isPayAtMethod = (method: string | undefined | null): boolean => {
+  const normalized = normalizePaymentMethod(method);
+  return normalized === 'pay_at';
+};
+
+export const isEftPopMethod = (method: string | undefined | null): boolean => {
+  const normalized = normalizePaymentMethod(method);
+  return normalized === 'eft_pop';
+};
+
+export const getPaymentMethodLabel = (method: string | undefined | null): string => {
+  if (!method) return 'N/A';
+  const normalized = method.toString().trim().toLowerCase() as PaymentMethod;
+  return PAYMENT_METHOD_LABELS[normalized] || normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
 
 export interface Invoice {
@@ -51,6 +108,7 @@ export interface Payment {
 
   // gateway fields — only populated when method = 'pay_at'
   reference?: string; // Pay@ reference shown to the customer (mocked until real integration)
+  paymentReference?: string;
   provider?: 'pay_at';
   providerTransactionId?: string; // Pay@'s own transaction id, from callback
   expiresAt?: string;

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, User, Flag, Clock } from 'lucide-react';
-import { mockTasks } from '../../data/mockData';
 import { Task } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useOutletContext, useParams } from 'react-router-dom';
@@ -78,7 +77,9 @@ const TaskBoard: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       if (!isSupabaseConfigured()) {
-        setTasks(mockTasks);
+        setTasks([]);
+        setStaffList([]);
+        setCaseOptions([]);
         return;
       }
 
@@ -99,7 +100,7 @@ const TaskBoard: React.FC = () => {
 
         if (tasksError) {
           console.error('Error loading tasks from Supabase:', tasksError);
-          setTasks(mockTasks);
+          setTasks([]);
         } else {
           const mapped: Task[] = (taskRows || []).map((row: any) => ({
             id: row.id,
@@ -154,7 +155,7 @@ const TaskBoard: React.FC = () => {
         }
       } catch (err) {
         console.error('Unexpected error loading task board data:', err);
-        setTasks(mockTasks);
+        setTasks([]);
       }
     };
 

@@ -201,32 +201,6 @@ const ClientDetails: React.FC = () => {
     
     setSaving(true);
     try {
-      // Check if this is a mock client
-      if (client?.id?.startsWith('mock-client-')) {
-        console.log('Updating mock client:', client?.id);
-        const { updateMockClient } = await import('../../data/mockClients');
-        const updatedClient = updateMockClient(client?.id, {
-          name: editingClient.name,
-          relationship: editingClient.relationship,
-          email: editingClient.email,
-          phone: editingClient.phone,
-          address: editingClient.address,
-          cultural_preferences: editingClient.cultural_preferences,
-          profile_picture_url: editingClient.profile_picture_url
-        });
-        
-        if (!updatedClient) {
-          throw new Error('Failed to update mock client');
-        }
-        
-        setClient(updatedClient);
-        setIsEditing(false);
-        toast.success('Client updated successfully');
-        setSaving(false);
-        return;
-      }
-      
-      // Otherwise update in Supabase
       const { data, error } = await supabase
         .from('clients')
         .update({

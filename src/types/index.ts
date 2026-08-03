@@ -119,6 +119,8 @@ export interface Service {
   updatedAt: Date;
 }
 
+export * from './payments';
+
 export interface Notification {
   id: string;
   title: string;
@@ -176,4 +178,6 @@ export interface Dependant {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export * from './payments';
 

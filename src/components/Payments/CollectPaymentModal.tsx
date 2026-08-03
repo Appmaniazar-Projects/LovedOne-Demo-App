@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Banknote, Landmark, QrCode, CreditCard, Repeat } from 'lucide-react';
+import { X, Banknote, Landmark, QrCode } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { PaymentMethod } from '../../types/payments';
 import CashPaymentForm from '../Payments/CashPaymentForm';
@@ -24,12 +24,12 @@ interface MethodOption {
 
 const ALL_METHODS: MethodOption[] = [
   { method: 'cash', label: 'Cash', icon: <Banknote className="w-5 h-5" />, description: 'Payment received in person' },
-  { method: 'eft', label: 'EFT / Bank Transfer', icon: <Landmark className="w-5 h-5" />, description: 'Bank details + reference, optional POP upload' },
-  { method: 'payat', label: 'Pay@', icon: <QrCode className="w-5 h-5" />, description: 'Retail store or QR payment via Pay@' }
+  { method: 'eft_pop', label: 'EFT / Proof of Payment', icon: <Landmark className="w-5 h-5" />, description: 'Bank details + reference, optional POP upload' },
+  { method: 'pay_at', label: 'Pay@', icon: <QrCode className="w-5 h-5" />, description: 'Retail store or QR payment via Pay@' }
 ];
 
 
-const ALWAYS_AVAILABLE: PaymentMethod[] = ['cash', 'eft', 'payat'];
+const ALWAYS_AVAILABLE: PaymentMethod[] = ['cash', 'eft_pop', 'pay_at'];
 
 const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
   isOpen,
@@ -84,25 +84,10 @@ const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
     switch (selectedMethod) {
       case 'cash':
         return <CashPaymentForm {...shared} />;
-      case 'eft':
+      case 'eft_pop':
         return <EftPaymentForm {...shared} />;
-      case 'payat':
+      case 'pay_at':
         return <PayAtPaymentForm {...shared} />;
-        
-        // the equivalent build-out these would need with their own providers.
-        return (
-          <div className="text-center py-8">
-            <p className="text-slate-600 dark:text-gray-300">
-              This payment method isn't wired up to a provider yet.
-            </p>
-            <button
-              onClick={() => setSelectedMethod(null)}
-              className="mt-4 px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-white"
-            >
-              Back
-            </button>
-          </div>
-        );
       default:
         return null;
     }

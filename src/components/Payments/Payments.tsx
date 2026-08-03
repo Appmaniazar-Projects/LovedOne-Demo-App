@@ -3,7 +3,7 @@ import { Plus, Search, CreditCard, TrendingUp, AlertCircle, CheckCircle, Loader2
 import RequestPaymentModal from './RequestPaymentModal';
 import ViewPaymentModal from './ViewPaymentModal';
 import { supabase } from '../../supabaseClient';
-import { Payment } from '../../types/payments';
+import { Payment, normalizePaymentMethod, getPaymentMethodLabel } from '../../types/payments';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCountUp } from '../../hooks/useCountUp';
 import { useOutletContext, useParams } from 'react-router-dom';
@@ -101,7 +101,14 @@ Generated on: ${new Date().toLocaleString('en-US')}
       setError(error.message);
       console.error('Error fetching payments:', error);
     } else {
-      const formattedData = data.map(p => ({ ...p, createdAt: new Date(p.created_at), updatedAt: new Date(p.updated_at), transactionId: p.transaction_id, caseId: p.case_id })) as Payment[];
+      const formattedData = data.map(p => ({
+        ...p,
+        createdAt: new Date(p.created_at),
+        updatedAt: new Date(p.updated_at),
+        transactionId: p.transaction_id,
+        caseId: p.case_id,
+        paymentReference: p.payment_reference || p.reference || undefined,
+      })) as Payment[];
       setPayments(formattedData);
       setError(null);
     }
@@ -135,24 +142,34 @@ Generated on: ${new Date().toLocaleString('en-US')}
     const searchStr = `${payment.description} ${payment.transactionId}`.toLowerCase();
     const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
-    const matchesMethod = methodFilter === 'all' || payment.method === methodFilter;
+    const matchesMethod = methodFilter === 'all'
+      || normalizePaymentMethod(payment.method) === normalizePaymentMethod(methodFilter);
     
     return matchesSearch && matchesStatus && matchesMethod;
   });
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     pending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400',
+    partial: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400',
     completed: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
+    paid: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
+    overdue: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400',
     failed: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400',
-    refunded: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+    refunded: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
+    reversed: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400',
+    expired: 'bg-slate-100 dark:bg-slate-900/30 text-slate-800 dark:text-slate-400',
+    cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400',
+    default: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
   };
 
-  const methodColors = {
+  const methodColors: Record<string, string> = {
+    cash: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400',
     eft: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
-    easypay: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400',
+    eft_pop: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
     snapscan: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
     card: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400',
     payat: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
+    pay_at: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
     voucher: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400',
     pay_by_bank: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
     paybybank: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
@@ -324,12 +341,13 @@ Generated on: ${new Date().toLocaleString('en-US')}
               className="appearance-none bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 hover:scale-105 cursor-pointer"
             >
               <option value="all">All Methods</option>
-              <option value="eft">EFT</option>
-              <option value="easypay">EasyPay</option>
+              <option value="eft_pop">EFT / Proof of Payment</option>
+              <option value="eft">EFT (legacy)</option>
               <option value="snapscan">SnapScan</option>
               <option value="card">Card</option>
               <option value="voucher">Voucher</option>
-              <option value="payat">Pay@</option>
+              <option value="pay_at">Pay@</option>
+              <option value="payat">Pay@ (legacy)</option>
               <option value="pay_by_bank">Pay By Bank</option>
               <option value="paybybank">Pay By Bank (alt)</option>
               <option value="pop">Proof of Payment (POP)</option>
@@ -379,24 +397,8 @@ Generated on: ${new Date().toLocaleString('en-US')}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md`}>
-                      {(() => {
-                        switch (payment.method) {
-                          case 'card': return 'CARD';
-                          case 'eft': return 'BANK TRANSFER';
-                          case 'easypay': return 'EASYPAY';
-                          case 'snapscan': return 'SNAPSCAN';
-                          case 'voucher': return 'VOUCHER';
-                          case 'payat': return 'PAY@';
-                          case 'pay_by_bank': return 'BANK TRANSFER';
-                          case 'paybybank': return 'BANK TRANSFER';
-                          case 'pop': return 'PROOF OF PAYMENT';
-                          default:
-                            // Fallback for any other method not explicitly handled
-                            const unhandledMethod = payment.method as string;
-                            return unhandledMethod ? unhandledMethod.toUpperCase() : 'UNKNOWN';
-                        }
-                      })()}
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${methodColors[payment.method] || methodColors.default} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md`}>
+                      {getPaymentMethodLabel(payment.method)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

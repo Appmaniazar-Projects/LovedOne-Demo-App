@@ -36,6 +36,16 @@ const PaymentStatusBadge: React.FC<PaymentStatusBadgeProps> = ({
       color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
       label: 'Paid',
     },
+    paid: {
+      icon: <CheckCircle className="w-4 h-4" />,
+      color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+      label: 'Paid',
+    },
+    cancelled: {
+      icon: <Ban className="w-4 h-4" />,
+      color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+      label: 'Cancelled',
+    },
     overdue: {
       icon: <AlertTriangle className="w-4 h-4" />,
       color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',

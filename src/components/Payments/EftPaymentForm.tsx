@@ -35,7 +35,7 @@ const EftPaymentForm: React.FC<ProviderFormProps> = ({ parlorId, caseId, clientI
           client_id: clientId || null,
           description,
           amount: parsedAmount,
-          method: proofFile ? 'pop' : 'eft',
+          method: 'eft_pop',
           status: 'pending', // waits for staff to confirm funds landed
           transaction_id: reference || null,
         })
