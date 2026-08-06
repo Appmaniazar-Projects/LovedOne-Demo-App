@@ -33,7 +33,7 @@ const CashPaymentForm: React.FC<ProviderFormProps> = ({ parlorId, caseId, client
         description,
         amount: parsedAmount,
         method: 'cash',
-        status: 'completed', // cash is confirmed at the point of collection
+        status: 'paid', // cash is confirmed at the point of collection
         transaction_id: receiptNumber || null,
         paid_at: new Date().toISOString(),
       });

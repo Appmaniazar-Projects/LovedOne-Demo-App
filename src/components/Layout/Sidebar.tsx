@@ -17,32 +17,34 @@ import LovedOneLogoLight from '../../assets/LovedOne_Logo_without-words_black.pn
 import LovedOneLogoDark from '../../assets/LovedOne_dashboard.png';
 
 interface SidebarProps {
-  parlorId: string;
+  parlorId: string;        // real parlor UUID — used for DB queries
+  parlorRouteKey?: string; // slug (or UUID) used to build URLs — falls back to parlorId
   parlorName: string;
   isMobile?: boolean;
   onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorName, isMobile = false, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName, isMobile = false, onClose }) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
   const location = useLocation();
+  const routeKey = parlorRouteKey || parlorId;
 
   void parlorName;
   void user;
   void loading;
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${parlorId}/dashboard` },
-    { id: 'clients', label: 'Clients', icon: Users, path: `/${parlorId}/clients` },
-    { id: 'cases', label: 'Cases', icon: CheckSquare, path: `/${parlorId}/cases` },
-    { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${parlorId}/payments` },
-    { id: 'payment-alerts', label: 'Payment Alerts', icon: AlertTriangle, path: `/${parlorId}/payment-alerts` },
-    { id: 'services', label: 'Services', icon: Calendar, path: `/${parlorId}/services` },
-    { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${parlorId}/reports` },
-    { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${parlorId}/notifications` },
-    { id: 'settings', label: 'Settings', icon: Settings, path: `/${parlorId}/settings` },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${routeKey}/dashboard` },
+    { id: 'clients', label: 'Clients', icon: Users, path: `/${routeKey}/clients` },
+    { id: 'cases', label: 'Cases', icon: CheckSquare, path: `/${routeKey}/cases` },
+    { id: 'payments', label: 'Payments', icon: CreditCard, path: `/${routeKey}/payments` },
+    { id: 'payment-alerts', label: 'Payment Alerts', icon: AlertTriangle, path: `/${routeKey}/payment-alerts` },
+    { id: 'services', label: 'Services', icon: Calendar, path: `/${routeKey}/services` },
+    { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${routeKey}/reports` },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${routeKey}/notifications` },
+    { id: 'settings', label: 'Settings', icon: Settings, path: `/${routeKey}/settings` },
   ];
 
   useEffect(() => {

@@ -53,7 +53,7 @@ export class PaymentAlertService {
       .select('case_id, amount, status')
       .eq('parlor_id', parlorId)
       .in('case_id', caseIds)
-      .eq('status', 'completed');
+      .eq('status', 'paid');
 
     const alerts: PaymentAlert[] = [];
     

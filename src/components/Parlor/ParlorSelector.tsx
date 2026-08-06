@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { Building, Sun, Moon, Edit2, Trash2 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { slugify } from '../../utils/slugify';
 
 interface Parlor {
   id: string;
@@ -102,10 +103,15 @@ const ParlorSelector: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      // parlors.slug is UNIQUE with a '' default — every parlor needs a real,
+      // distinct slug or creation after the first one will fail.
+      const uniqueSlug = `${slugify(parlorForm.name)}-${Date.now().toString(36)}`;
+
       const { data, error } = await supabase
         .from('parlors')
         .insert({
           name: parlorForm.name,
+          slug: uniqueSlug,
           address: parlorForm.address,
           contact_email: parlorForm.contact_email || null,
           contact_phone: parlorForm.contact_phone || null

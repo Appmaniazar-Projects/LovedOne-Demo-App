@@ -1,4 +1,3 @@
-
 // Phase 6: the only endpoint that depends on Pay@'s actual spec.
 // For now this is MOCKED — signature verification is a stub, and the
 // field names below are guesses based on the reference/amount pattern
@@ -45,7 +44,7 @@ serve(async (req) => {
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .select('id, invoice_id, parlor_id, amount, status')
-      .eq('payment_reference', payload.reference)
+      .eq('reference', payload.reference)
       .eq('provider', 'pay_at')
       .single();
 
@@ -57,18 +56,18 @@ serve(async (req) => {
 
     // 2. Verify signature against this parlour's configured secret
     const { data: providerConfig } = await supabase
-      .from('parlor_payment_providers')
-      .select('config')
+      .from('payment_provider_config')
+      .select('webhook_secret')
       .eq('parlor_id', payment.parlor_id)
       .eq('provider', 'pay_at')
       .maybeSingle();
 
-    if (!verifySignature(req, rawBody, providerConfig?.config?.webhook_secret ?? null)) {
+    if (!verifySignature(req, rawBody, providerConfig?.webhook_secret ?? null)) {
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401 });
     }
 
     // 3. Idempotency guard — don't reprocess a payment already settled
-    if (payment.status === 'completed' || payment.status === 'refunded') {
+    if (payment.status === 'paid' || payment.status === 'refunded') {
       return new Response(JSON.stringify({ ok: true, alreadyProcessed: true }));
     }
 
@@ -76,7 +75,7 @@ serve(async (req) => {
     const { error: updateError } = await supabase
       .from('payments')
       .update({
-        status: payload.status === 'paid' ? 'completed' : payload.status,
+        status: payload.status === 'paid' ? 'paid' : payload.status,
         provider_transaction_id: payload.providerTransactionId,
         paid_at: payload.status === 'paid' ? payload.paidAt ?? new Date().toISOString() : null,
       })

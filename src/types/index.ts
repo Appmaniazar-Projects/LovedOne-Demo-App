@@ -95,12 +95,13 @@ export interface Task {
 export interface Document {
   id: string;
   name: string;
-  type: 'id' | 'death-certificate' | 'contract' | 'insurance' | 'other';
+  type: string; // free text on the live schema, not a closed enum
   url: string;
-  size: number;
-  caseId: string;
+  parlorId: string;
+  scope?: 'client' | 'case';
+  caseId?: string;
+  clientId?: string;
   uploadedBy: string;
-  expiryDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -136,7 +137,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'assistant' | 'viewer';
+  role: 'super_admin' | 'admin' | 'staff' | 'viewer'; // matches live users.role CHECK
   avatar?: string;
   permissions: string[];
   createdAt: Date;
@@ -180,4 +181,3 @@ export interface Dependant {
 }
 
 export * from './payments';
-

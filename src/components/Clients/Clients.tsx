@@ -107,7 +107,7 @@ const Clients: React.FC = () => {
             .from('clients')
             .select(`
               *,
-              plans:plan_id (
+              plan:plan_id (
                 id,
                 name,
                 is_active,

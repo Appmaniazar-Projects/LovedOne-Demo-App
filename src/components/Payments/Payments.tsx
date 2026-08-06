@@ -187,14 +187,14 @@ Generated on: ${new Date().toLocaleString('en-US')}
   };
 
   const totalRevenue = payments
-    .filter(p => p.status === 'completed')
+    .filter(p => p.status === 'paid')
     .reduce((sum, p) => sum + p.amount, 0);
 
   const pendingAmount = payments
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0);
 
-  const successfulTransactions = payments.filter(p => p.status === 'completed').length;
+  const successfulTransactions = payments.filter(p => p.status === 'paid').length;
 
   // Animated values
   const animatedTotalRevenue = useCountUp(totalRevenue, 3000, 100);
@@ -402,7 +402,7 @@ Generated on: ${new Date().toLocaleString('en-US')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${statusColors[payment.status]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md group-hover:ring-2 group-hover:ring-offset-1 ${payment.status === 'completed' ? 'group-hover:ring-green-400' : payment.status === 'pending' ? 'group-hover:ring-yellow-400' : 'group-hover:ring-red-400'}`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${statusColors[payment.status]} ${theme === 'dark' ? 'bg-opacity-20' : 'bg-opacity-10'} transition-all duration-300 hover:scale-110 group-hover:scale-105 group-hover:shadow-md group-hover:ring-2 group-hover:ring-offset-1 ${payment.status === 'paid' ? 'group-hover:ring-green-400' : payment.status === 'pending' ? 'group-hover:ring-yellow-400' : 'group-hover:ring-red-400'}`}>
                       {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                     </span>
                   </td>

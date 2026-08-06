@@ -53,7 +53,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'paid': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'failed': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       case 'refunded': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
@@ -169,10 +169,10 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
 
           <div className="mt-8 flex justify-end">
             <div className="flex flex-wrap justify-end items-center gap-2">
-              {canManuallyUpdate && payment.status !== 'completed' && (
+              {canManuallyUpdate && payment.status !== 'paid' && (
                 <button
                   disabled={isUpdatingStatus}
-                  onClick={() => updatePaymentStatus('completed')}
+                  onClick={() => updatePaymentStatus('paid')}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Mark Paid

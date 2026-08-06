@@ -68,10 +68,10 @@ const PayAtPaymentForm: React.FC<ProviderFormProps> = ({ parlorId, caseId, clien
         { event: 'UPDATE', schema: 'public', table: 'payments', filter: `id=eq.${id}` },
         (payload) => {
           const status = (payload.new as any)?.status;
-          if (status === 'completed') {
+          if (status === 'paid') {
             setStep('paid');
             toast.success('Payment confirmed by Pay@.');
-          } else if (status === 'failed' || status === 'expired' || status === 'reversed') {
+          } else if (status === 'failed' || status === 'expired' || status === 'cancelled') {
             toast.error(`Payment ${status}.`);
           }
         },

@@ -73,7 +73,7 @@ const CreateCaseFromBoardModal: React.FC<CreateCaseFromBoardModalProps> = ({
       // Fetch clients with their plans
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
-        .select('id, name, relationship, plan_id, plans!inner(id, name)')
+        .select('id, name, relationship, plan_id, plan:plan_id(id, name)')
         .eq('parlor_id', parlorId);
 
       if (clientsError) throw clientsError;
@@ -88,8 +88,8 @@ const CreateCaseFromBoardModal: React.FC<CreateCaseFromBoardModalProps> = ({
       // Store client plans for auto-selection
       const plansMap: Record<string, { id: string; name: string }> = {};
       clientsList.forEach(client => {
-        if (client.plan_id && client.plans && Array.isArray(client.plans)) {
-          const plan = client.plans[0]; // Take the first plan if it's an array
+        const plan = client.plan?.[0] ?? client.plan;
+        if (client.plan_id && plan) {
           plansMap[client.id] = {
             id: client.plan_id,
             name: plan.name

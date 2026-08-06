@@ -1,6 +1,3 @@
-
-
-
 export type PaymentMethodCanonical = 'cash' | 'eft_pop' | 'pay_at';
 export type PaymentMethodLegacy =
   | 'eft'
@@ -16,16 +13,16 @@ export type PaymentMethodLegacy =
 
 export type PaymentMethod = PaymentMethodCanonical | PaymentMethodLegacy;
 
+// Matches the live `payments.status` CHECK constraint exactly.
+// Note: 'partial' and 'overdue' are valid for cases.payment_status, not
+// payments.status — don't reuse this type for that column.
 export type PaymentStatus =
   | 'pending'
-  | 'partial'
-  | 'completed'
-  | 'overdue'
-  | 'failed'
-  | 'refunded'
-  | 'reversed'
-  | 'expired'
+  | 'awaiting_confirmation'
   | 'paid'
+  | 'failed'
+  | 'expired'
+  | 'refunded'
   | 'cancelled';
 
 export const MANUALLY_UPDATABLE_METHODS: PaymentMethod[] = ['cash', 'eft_pop', 'eft', 'pop'];

@@ -56,7 +56,7 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       // Fetch the client to get their plan
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
-        .select('plan_id, plans!inner(id, name)')
+        .select('plan_id, plan:plan_id(id, name)')
         .eq('id', clientId)
         .single();
 
@@ -65,8 +65,8 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         return;
       }
 
-      if (clientData?.plan_id && clientData.plans && Array.isArray(clientData.plans)) {
-        const plan = clientData.plans[0]; // Take the first plan if it's an array
+      const plan = clientData?.plan?.[0] ?? clientData?.plan;
+      if (clientData?.plan_id && plan) {
         setClientPlan({
           id: clientData.plan_id,
           name: plan.name

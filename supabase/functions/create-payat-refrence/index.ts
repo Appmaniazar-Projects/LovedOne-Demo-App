@@ -30,17 +30,17 @@ serve(async (req) => {
 
     // 1. Look up the parlour's Pay@ prefix (assigned when they onboarded directly with Pay@).
     const { data: providerConfig, error: configError } = await supabase
-      .from('parlor_payment_providers')
-      .select('config, is_enabled')
+      .from('payment_provider_config')
+      .select('payat_prefix, enabled')
       .eq('parlor_id', parlorId)
-      .eq('provider', 'payat')
+      .eq('provider', 'pay_at')
       .single();
 
-    if (configError || !providerConfig?.is_enabled) {
+    if (configError || !providerConfig?.enabled) {
       return new Response(JSON.stringify({ error: 'Pay@ is not enabled for this parlour' }), { status: 400 });
     }
 
-    const prefix = providerConfig.config?.prefix as string | undefined;
+    const prefix = providerConfig.payat_prefix as string | undefined;
     if (!prefix || !/^\d{5}$/.test(prefix)) {
       return new Response(JSON.stringify({ error: 'Parlour is missing a valid 5-digit Pay@ prefix' }), { status: 500 });
     }
@@ -66,7 +66,7 @@ serve(async (req) => {
         method: 'pay_at',
         provider: 'pay_at',
         status: 'pending',
-        payment_reference: reference,
+        reference: reference,
         expires_at: expiresAt,
       })
       .select('id')

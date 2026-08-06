@@ -53,10 +53,10 @@ const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
     setLoadingProviders(true);
     try {
       const { data, error } = await supabase
-        .from('parlor_payment_providers')
-        .select('provider, is_enabled')
+        .from('payment_provider_config')
+        .select('provider, enabled')
         .eq('parlor_id', parlorId)
-        .eq('is_enabled', true);
+        .eq('enabled', true);
 
       if (error) throw error;
 

@@ -10,6 +10,8 @@ LovedOne Demo App is a React + TypeScript Vite application backed by Supabase. I
   - EFT / Proof of Payment and Cash payment methods
   - Legacy payment alias normalization for backwards compatibility
 - Client and case management with Supabase
+  - Clients can be assigned a plan through the `plan_id` relation
+  - Dependants are stored separately in the `dependants` table and linked to a client
 - Task board with Supabase task loading and assignment
 - Realtime payment updates via Supabase realtime channels
 
@@ -35,6 +37,7 @@ LovedOne Demo App is a React + TypeScript Vite application backed by Supabase. I
 ## Important notes
 
 - Mock data has been removed; the app now relies on Supabase for client, task, and payment data.
+- Client plan and dependant values are resolved from the database using the `clients.plan_id` and `dependants.client_id` relationships.
 - Payment normalization is centralized in `src/types/payments.ts`.
 - Payment-specific documentation lives in `src/components/Payments/PAYMENT_README.md`.
 - Payment cleanup tasks are tracked in `PAYMENT_TODO.md`.
