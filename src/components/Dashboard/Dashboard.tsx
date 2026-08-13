@@ -145,9 +145,9 @@ const Dashboard: React.FC = () => {
             console.error('Error fetching payments:', paymentsError);
           } else if (payments) {
             const pending = payments.filter(p => p.status === 'pending').length;
-            const completed = payments.filter(p => p.status === 'completed').length;
+            const completed = payments.filter(p => p.status === 'paid').length;
             const revenue = payments
-              .filter(p => p.status === 'completed')
+              .filter(p => p.status === 'paid')
               .reduce((sum, p) => sum + (p.amount || 0), 0);
 
             const now = new Date();
@@ -155,7 +155,7 @@ const Dashboard: React.FC = () => {
             const startOfPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
             const endOfPrevMonth = startOfMonth;
             const monthRevenue = payments
-              .filter(p => p.status === 'completed')
+              .filter(p => p.status === 'paid')
               .filter(p => {
                 const created = p.created_at ? new Date(p.created_at) : null;
                 return created ? created >= startOfMonth : false;
@@ -163,14 +163,14 @@ const Dashboard: React.FC = () => {
               .reduce((sum, p) => sum + (p.amount || 0), 0);
 
             const prevMonthRevenue = payments
-              .filter(p => p.status === 'completed')
+              .filter(p => p.status === 'paid')
               .filter(p => {
                 const created = p.created_at ? new Date(p.created_at) : null;
                 return created ? created >= startOfPrevMonth && created < endOfPrevMonth : false;
               })
               .reduce((sum, p) => sum + (p.amount || 0), 0);
 
-            const completedPayments = payments.filter(p => p.status === 'completed');
+            const completedPayments = payments.filter(p => p.status === 'paid');
             const avgValue = completedPayments.length > 0 ? revenue / completedPayments.length : 0;
 
             setPaymentsData({

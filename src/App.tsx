@@ -9,6 +9,7 @@ import Header from './components/Layout/Header';
 import Dashboard from './components/Dashboard/Dashboard';
 import Clients from './components/Clients/Clients';
 import CasesBoard from './components/Cases/CasesBoard';
+import TaskBoard from './components/Tasks/TaskBoard';
 import Payments from './components/Payments/Payments';
 import Services from './components/Services/Services';
 import Reports from './components/Reports/Reports';
@@ -121,7 +122,8 @@ const ParlorLayout = () => {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
           <Sidebar 
-            parlorId={parlorRouteKey || resolvedParlorId} 
+            parlorId={resolvedParlorId} 
+            parlorRouteKey={parlorRouteKey || resolvedParlorId}
             parlorName={parlorNameState} 
             isMobile={isMobile}
             onClose={() => setSidebarOpen(false)}
@@ -300,6 +302,7 @@ function App() {
         <Route path="clients" element={<Clients />} />
         <Route path="clients/:clientSlug" element={<ClientDetails />} />
         <Route path="cases" element={<CasesBoard />} />
+        <Route path="tasks" element={<TaskBoard />} />
         <Route path="payments" element={<Payments />} />
         <Route path="payment-alerts" element={<PaymentAlertDashboard />} />
         <Route path="services" element={<Services />} />

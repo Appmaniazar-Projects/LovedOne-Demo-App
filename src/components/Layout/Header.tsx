@@ -116,13 +116,13 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
 
         (paymentsRes.data || []).forEach((p: any) => {
           const status = String(p.status || '').toLowerCase();
-          const title = status === 'completed' ? 'Payment Received' : status === 'pending' ? 'Payment Pending' : 'Payment Updated';
+          const title = status === 'paid' ? 'Payment Received' : status === 'pending' ? 'Payment Pending' : 'Payment Updated';
           const id = `payment-${p.id}`;
           mapped.push({
             id,
             title,
             message: `Payment of ${new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(p.amount || 0))} (${status || 'unknown'})`,
-            type: status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'info',
+            type: status === 'paid' ? 'success' : status === 'failed' ? 'error' : 'info',
             read: readIds.has(id),
             userId: userId || 'system',
             caseId: p.case_id || undefined,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 import { X, Save, AlertCircle } from 'lucide-react';
-import { DeceasedProfile } from '../../types';
+import { Case } from '../../types';
 
 interface CreateCaseModalProps {
   isOpen: boolean;
@@ -10,7 +10,7 @@ interface CreateCaseModalProps {
   clientId: string;
   clientName: string;
   dependants?: Array<{ id: string; name: string; relationship: string }>;
-  onCaseCreated: (newCase: DeceasedProfile) => void;
+  onCaseCreated: (newCase: Case) => void;
   parlorId: string;
 }
 
@@ -90,21 +90,20 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       }
 
       const caseData = {
-        name: formData.name,
-        dateOfBirth: formData.dateOfBirth.toISOString(),
-        dateOfDeath: formData.dateOfDeath.toISOString(),
-        serviceType: formData.serviceType,
-        status: formData.status,
-        assignedDirector: formData.assignedDirector,
-        culturalRequirements: formData.culturalRequirements,
-        clientId: formData.isDependant ? undefined : clientId,
-        planId: clientPlan?.id || null, // Use client's plan if available
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        deceased_name: formData.name,
+        date_of_birth: formData.dateOfBirth.toISOString(),
+        date_of_death: formData.dateOfDeath.toISOString(),
+        case_status: formData.status,           // maps to 'quote' | 'ongoing' | 'closed'
+        assigned_director: formData.assignedDirector || null,
+        cultural_requirements: formData.culturalRequirements || null,
+        client_id: formData.isDependant ? undefined : clientId,
+        plan_id: clientPlan?.id || null,        // Use client's plan if available
+        parlor_id: parlorId,                    // required — cases.parlor_id has no default
+        service_type_id: null,                  // TODO: add a service type selector if the form needs one
       };
 
       const { data: newCase, error: caseError } = await supabase
-        .from('deceased_profiles')
+        .from('cases')
         .insert(caseData)
         .select()
         .single();

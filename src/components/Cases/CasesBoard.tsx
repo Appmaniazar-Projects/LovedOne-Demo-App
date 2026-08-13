@@ -7,7 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { Client, DeceasedProfile } from '../../types';
 import { slugify } from '../../utils/slugify';
-import PaymentStatusBadge from '../Payments/PaymentStatusBadge';
+import CasePaymentStatusBadge from './CasePaymentStatusBadge';
 
 interface StaffProfile {
   id: string;
@@ -538,15 +538,23 @@ const CasesBoard: React.FC = () => {
         .getPublicUrl(fileName);
 
       // Save document record
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('You must be logged in to upload documents');
+        return;
+      }
+
       const { error: insertError } = await supabase
         .from('documents')
         .insert({
           name: file.name,
           type: 'other', // You can enhance this to detect file type
           url: publicUrl,
-          size: file.size,
+          file_size: file.size,
           case_id: selectedCase.id,
-          uploaded_by: 'current-user', // You might want to get actual user ID
+          parlor_id: currentParlorId, // required — documents.parlor_id has no default
+          scope: 'case',              // documents.scope CHECK allows 'client' | 'case'
+          uploaded_by: user.id,
         });
 
       if (insertError) {
@@ -624,7 +632,7 @@ const CasesBoard: React.FC = () => {
             </p>
             {item.payment_status && (
               <div className="mt-2">
-                <PaymentStatusBadge 
+                <CasePaymentStatusBadge
                   status={item.payment_status}
                   amountDue={item.total_estimated_cost ? item.total_estimated_cost - (item.total_actual_cost || 0) : undefined}
                   totalAmount={item.total_estimated_cost}
@@ -1011,7 +1019,7 @@ const CasesBoard: React.FC = () => {
                               {doc.name}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatFileSize(doc.size || 0)} • {new Date(doc.created_at).toLocaleDateString()}
+                              {formatFileSize(doc.file_size || 0)} • {new Date(doc.created_at).toLocaleDateString()}
                             </p>
                           </div>
                         </div>

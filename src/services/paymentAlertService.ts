@@ -56,17 +56,45 @@ export class PaymentAlertService {
       .eq('status', 'paid');
 
     const alerts: PaymentAlert[] = [];
-    
+
     for (const caseItem of cases || []) {
       const casePayments = payments?.filter(p => p.case_id === caseItem.id) || [];
       const totalPaid = casePayments.reduce((sum, p) => sum + p.amount, 0);
       const totalDue = caseItem.total_estimated_cost || 0;
       const amountDue = totalDue - totalPaid;
 
-      const alert = this.calculateAlertLevel(caseItem, amountDue);
-      if (alert) {
-        alerts.push(alert);
+      const computed = this.calculateAlertLevel(caseItem, amountDue);
+      if (!computed) continue;
+
+      // Persist to payment_alerts so resolveAlert() has a real row to act on
+      // (previously these were purely computed on the fly with id: '', so
+      // "Resolve" was a silent no-op). Upsert on case_id so re-running this
+      // doesn't create duplicate rows per case — requires a unique
+      // constraint on payment_alerts.case_id, see migration note below.
+      const { data: saved, error: upsertError } = await supabase
+        .from('payment_alerts')
+        .upsert(
+          {
+            case_id: computed.caseId,
+            parlor_id: computed.parlorId,
+            alert_level: computed.alertLevel,
+            message: computed.message,
+            is_resolved: false,
+          },
+          { onConflict: 'case_id' }
+        )
+        .select()
+        .single();
+
+      if (upsertError) {
+        console.error('Error persisting payment alert:', upsertError);
+        // Fall back to a virtual (unsaved) alert rather than dropping it —
+        // Resolve won't work for this one until the DB write succeeds.
+        alerts.push(computed);
+        continue;
       }
+
+      if (saved) alerts.push({ ...computed, id: saved.id });
     }
 
     return alerts;

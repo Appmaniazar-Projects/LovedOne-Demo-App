@@ -107,7 +107,7 @@ const RecentActivity: React.FC = () => {
           ...(paymentsRes.data || []).map((p: any) => {
             const createdAt = p.created_at ? new Date(p.created_at) : new Date();
             const status = String(p.status || '').toLowerCase();
-            const title = status === 'completed' ? 'Payment received' : status === 'pending' ? 'Payment pending' : 'Payment updated';
+            const title = status === 'paid' ? 'Payment received' : status === 'pending' ? 'Payment pending' : 'Payment updated';
             return {
               id: `payment-${p.id}`,
               type: 'payment' as const,
@@ -116,7 +116,7 @@ const RecentActivity: React.FC = () => {
               user: 'System',
               time: formatRelativeTime(createdAt),
               icon: CreditCard,
-              color: status === 'completed' ? ('green' as const) : ('yellow' as const),
+              color: status === 'paid' ? ('green' as const) : ('yellow' as const),
               createdAt,
             };
           }),

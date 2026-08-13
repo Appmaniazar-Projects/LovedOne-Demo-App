@@ -125,12 +125,12 @@ const Reports: React.FC = () => {
           return created ? created >= new Date(startDateIso) : false;
         });
 
-        const completedPayments = paymentsInRange.filter((p: any) => (p.status || '').toLowerCase() === 'completed');
+        const completedPayments = paymentsInRange.filter((p: any) => (p.status || '').toLowerCase() === 'paid');
         const pendingPayments = paymentsInRange.filter((p: any) => (p.status || '').toLowerCase() === 'pending');
 
         const totalRevenue = completedPayments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
         const monthlyRevenue = payments
-          .filter((p: any) => (p.status || '').toLowerCase() === 'completed')
+          .filter((p: any) => (p.status || '').toLowerCase() === 'paid')
           .filter((p: any) => {
             const created = p.created_at ? new Date(p.created_at) : null;
             return created ? created >= startOfMonth : false;
@@ -171,7 +171,7 @@ const Reports: React.FC = () => {
           const nextMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i + 1, 1));
           const label = monthStart.toLocaleDateString('en-ZA', { month: 'long' });
           const amount = payments
-            .filter((p: any) => (p.status || '').toLowerCase() === 'completed')
+            .filter((p: any) => (p.status || '').toLowerCase() === 'paid')
             .filter((p: any) => {
               const created = p.created_at ? new Date(p.created_at) : null;
               return created ? created >= monthStart && created < nextMonthStart : false;

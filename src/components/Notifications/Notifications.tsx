@@ -60,7 +60,6 @@ const Notifications: React.FC = () => {
         const userId = auth?.user?.id ?? null;
         const { readIds, deletedIds } = loadPersistedState(userId);
 
-        const nowIso = new Date().toISOString();
         const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
         const [paymentsRes, tasksRes, casesRes] = await Promise.all([
@@ -97,12 +96,12 @@ const Notifications: React.FC = () => {
 
         (paymentsRes.data || []).forEach((p: any) => {
           const status = String(p.status || '').toLowerCase();
-          const title = status === 'completed' ? 'Payment Received' : status === 'pending' ? 'Payment Pending' : 'Payment Updated';
+          const title = status === 'paid' ? 'Payment Received' : status === 'pending' ? 'Payment Pending' : 'Payment Updated';
           mapped.push({
             id: `payment-${p.id}`,
             title,
             message: `Payment of ${new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(p.amount || 0))} (${status || 'unknown'})`,
-            type: status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'info',
+            type: status === 'paid' ? 'success' : status === 'failed' ? 'error' : 'info',
             read: readIds.has(`payment-${p.id}`),
             userId: userId || 'system',
             caseId: p.case_id || undefined,

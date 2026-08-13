@@ -18,6 +18,7 @@ interface Client {
   profile_picture_url: string | null;
   created_at: string;
   user_id: string | null;
+  parlor_id: string;
 }
 
 const ClientDetails: React.FC = () => {
@@ -503,7 +504,7 @@ const ClientDetails: React.FC = () => {
           // Optionally navigate to cases board
           // navigate('/cases');
         }}
-        parlorId={'ubunye-funerals'} // TODO: Get from client data once we fix the type
+        parlorId={client?.parlor_id || ''}
       />
     </div>
   );

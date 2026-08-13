@@ -324,7 +324,7 @@ const TaskBoard: React.FC = () => {
         status: taskForm.status,
         assigned_to: taskForm.assignedTo || null,
         due_date: taskForm.dueDate,
-        case_id: taskForm.caseId,
+        case_id: taskForm.caseId || null,
         parlor_id: currentParlorId
       })
       .select('id, title, description, type, priority, status, assigned_to, due_date, case_id, parlor_id, created_at, updated_at')

@@ -97,6 +97,7 @@ export interface Document {
   name: string;
   type: string; // free text on the live schema, not a closed enum
   url: string;
+  file_size?: number;
   parlorId: string;
   scope?: 'client' | 'case';
   caseId?: string;
