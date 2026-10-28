@@ -1,94 +1,316 @@
-// supabase/functions/create-payat-reference/index.ts
-//
-// Generates a Pay@ account reference for a parlour and creates the
-// corresponding pending payment row. Reference generation MUST stay
-// server-side — see "Technical approach" in the Pay@ integration doc:
-// "Generate references server-side only and validate numeric-only /
-// 36-character rules."
 
 import { serve } from 'https://deno.land/std@0.203.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const PAYAT_MAX_LENGTH = 36;
+const PAYAT_BASE_URL = 'https://staging-go.payat.co.za/yapi/v1';
+const PAYAT_TOKEN_URL = 'https://staging-go.payat.co.za/yapi/oauth/token';
 
-serve(async (req) => {
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function generateAccountNumber(prefix: string): string {
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+
+  const suffix = (values[0] % 1_000_000_000)
+    .toString()
+    .padStart(9, '0');
+
+  return `${prefix}${suffix}`;
+}
+
+async function getPayAtToken(): Promise<string> {
+  const clientId = Deno.env.get('PAYAT_CLIENT_ID');
+  const clientSecret = Deno.env.get('PAYAT_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Pay@ credentials are not configured');
   }
 
-  try {
-    const { parlorId, caseId, clientId, amount, description } = await req.json();
+  const basic = btoa(`${clientId}:${clientSecret}`);
 
-    if (!parlorId || !amount || !description) {
-      return new Response(JSON.stringify({ error: 'parlorId, amount and description are required' }), { status: 400 });
+  const response = await fetch(PAYAT_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      scope: 'rtp:read rtp:create:single',
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('Pay@ OAuth failed with status:', response.status);
+    throw new Error('Could not authenticate with Pay@');
+  }
+
+  const result = await response.json();
+
+  if (!result.access_token) {
+    throw new Error('Pay@ did not return an access token');
+  }
+
+  return result.access_token;
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return json({ error: 'Method not allowed' }, 405);
+  }
+
+  let paymentId: string | undefined;
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+
+    if (!authHeader) {
+      return json({ error: 'Authentication required' }, 401);
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
-    // 1. Look up the parlour's Pay@ prefix (assigned when they onboarded directly with Pay@).
-    const { data: providerConfig, error: configError } = await supabase
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+      throw new Error('Supabase environment is not configured');
+    }
+
+    // Verify the caller's identity before using service-role access.
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: userData, error: userError } =
+      await userClient.auth.getUser();
+
+    if (userError || !userData.user) {
+      return json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const {
+      parlorId,
+      caseId,
+      clientId,
+      amount,
+      description,
+      customerNameSurname,
+      customerMobileNumber,
+      customerEmail,
+    } = await req.json();
+
+    if (
+      typeof parlorId !== 'string' ||
+      typeof description !== 'string' ||
+      !description.trim() ||
+      typeof amount !== 'number' ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      return json({
+        error: 'Valid parlorId, amount and description are required',
+      }, 400);
+    }
+
+    const amountInCents = Math.round(amount * 100);
+
+    if (
+      !Number.isSafeInteger(amountInCents) ||
+      amountInCents <= 0
+    ) {
+      return json({ error: 'Invalid payment amount' }, 400);
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Read the parlor's Pay@ configuration.
+    const { data: config, error: configError } = await supabase
       .from('payment_provider_config')
       .select('payat_prefix, enabled')
       .eq('parlor_id', parlorId)
       .eq('provider', 'pay_at')
       .single();
 
-    if (configError || !providerConfig?.enabled) {
-      return new Response(JSON.stringify({ error: 'Pay@ is not enabled for this parlour' }), { status: 400 });
+    if (configError || !config?.enabled) {
+      return json({ error: 'Pay@ is not enabled for this parlour' }, 400);
     }
 
-    const prefix = providerConfig.payat_prefix as string | undefined;
+    const prefix = config.payat_prefix;
+
     if (!prefix || !/^\d{5}$/.test(prefix)) {
-      return new Response(JSON.stringify({ error: 'Parlour is missing a valid 5-digit Pay@ prefix' }), { status: 500 });
+      return json({
+        error: 'Parlour needs a valid 5-digit Pay@ prefix',
+      }, 400);
     }
 
-    // 2. Build a numeric-only reference: prefix + unique numeric suffix, capped at 36 chars.
-    const suffix = generateNumericSuffix(PAYAT_MAX_LENGTH - prefix.length);
-    const reference = `${prefix}${suffix}`;
-
-    // TODO: confirm with Pay@ whether references expire, and if so the
-    // default/expected TTL — this is one of the open questions in the doc
-    // ("Can a reference be cancelled, regenerated, or given an expiry date?").
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
-
-    // 3. Create the pending payment row.
+    // Create a local record first so the provider request can be linked
+    // to a stable LovedOne payment ID.
     const { data: payment, error: insertError } = await supabase
       .from('payments')
       .insert({
         parlor_id: parlorId,
         case_id: caseId || null,
         client_id: clientId || null,
-        description,
+        description: description.trim(),
         amount,
         method: 'pay_at',
         provider: 'pay_at',
         status: 'pending',
-        reference: reference,
-        expires_at: expiresAt,
       })
       .select('id')
       .single();
 
-    if (insertError) {
-      console.error('Failed to insert Pay@ payment', insertError);
-      return new Response(JSON.stringify({ error: 'Failed to create payment' }), { status: 500 });
+    if (insertError || !payment) {
+      console.error('Payment insert failed:', insertError);
+      return json({ error: 'Could not create payment record' }, 500);
     }
 
-    return new Response(
-      JSON.stringify({ paymentId: payment.id, reference, expiresAt }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    paymentId = payment.id;
+
+    const token = await getPayAtToken();
+    const accountNumber = generateAccountNumber(prefix);
+    const clientReferenceNumber = `LO-${payment.id}`;
+
+    const rtpPayload: Record<string, unknown> = {
+      clientReferenceNumber,
+      clientAccountNumber: accountNumber,
+      description: description.trim().slice(0, 256),
+      amount: String(amountInCents),
+      minimumAmount: String(amountInCents),
+      maximumAmount: String(amountInCents),
+      daysValid: 2,
+      lineItems: [{
+        description: description.trim().slice(0, 256),
+        amount: String(amountInCents),
+      }],
+    };
+
+    if (customerNameSurname) {
+      rtpPayload.customerNameSurname = customerNameSurname;
+    }
+    if (customerMobileNumber) {
+      rtpPayload.customerMobileNumber = customerMobileNumber;
+    }
+    if (customerEmail) {
+      rtpPayload.customerEmail = customerEmail;
+    }
+
+    const rtpResponse = await fetch(
+      `${PAYAT_BASE_URL}/merchant/rtp/create/single`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-API-VERSION': '1.3.0',
+        },
+        body: JSON.stringify(rtpPayload),
+      },
     );
-  } catch (err) {
-    console.error('create-payat-reference error', err);
-    return new Response(JSON.stringify({ error: 'Unexpected error' }), { status: 500 });
+
+    if (!rtpResponse.ok) {
+      const providerError = await rtpResponse.text();
+
+      // Log the provider status, not credentials or tokens.
+      console.error('Pay@ RTP creation failed:', {
+        status: rtpResponse.status,
+        response: providerError.slice(0, 1000),
+        paymentId,
+      });
+
+      await supabase
+        .from('payments')
+        .update({ status: 'failed' })
+        .eq('id', paymentId);
+
+      return json({
+        error: 'Pay@ could not create the payment request',
+        paymentId,
+        providerStatus: rtpResponse.status,
+      }, 502);
+    }
+
+    const rtp = await rtpResponse.json();
+
+    if (!rtp.requestToPayId || !rtp.sourceReference || !rtp.paymentLink) {
+      console.error('Pay@ response missing expected fields:', {
+        paymentId,
+        responseKeys: Object.keys(rtp),
+      });
+
+      await supabase
+        .from('payments')
+        .update({ status: 'failed' })
+        .eq('id', paymentId);
+
+      return json({
+        error: 'Pay@ returned an incomplete payment response',
+        paymentId,
+      }, 502);
+    }
+
+    const expiresAt = new Date(
+      Date.now() + 2 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({
+        reference: rtp.sourceReference,
+        provider_transaction_id: String(rtp.requestToPayId),
+        transaction_id: String(rtp.requestToPayId),
+        payment_link: rtp.paymentLink,
+        payat_client_account_number: accountNumber,
+        expires_at: expiresAt,
+        status: 'pending',
+      })
+      .eq('id', paymentId);
+
+    if (updateError) {
+      // The provider request may exist even if this database update fails.
+      console.error('Pay@ created RTP but saving its response failed:', {
+        paymentId,
+        error: updateError,
+      });
+
+      return json({
+        error: 'Pay@ created the request, but saving its details failed',
+        paymentId,
+        recoveryRequired: true,
+      }, 500);
+    }
+
+    return json({
+      paymentId,
+      reference: rtp.sourceReference,
+      paymentLink: rtp.paymentLink,
+      providerTransactionId: String(rtp.requestToPayId),
+      accountNumber,
+      expiresAt,
+      status: 'pending',
+    }, 201);
+  } catch (error) {
+    console.error('create-payat-reference error:', error);
+
+    return json({
+      error: 'Unexpected error creating Pay@ payment',
+      paymentId: paymentId ?? null,
+    }, 500);
   }
 });
-
-function generateNumericSuffix(maxLength: number): string {
-  const timestampPart = Date.now().toString().slice(-10);
-  const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `${timestampPart}${randomPart}`.slice(0, maxLength);
-}

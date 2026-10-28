@@ -121,19 +121,20 @@ export interface Payment {
   updatedAt: string;
 }
 
-// One row per parlour — Pay@ is the only gateway now, so no per-method
-// config table is needed.
+export type PayatOnboardingStatus = 'not_started' | 'link_sent' | 'kyc_pending' | 'approved';
+
 export interface PaymentProviderConfig {
   id: string;
   parlorId: string;
   provider: 'pay_at';
-  payatPrefix?: string;
-  enabled: boolean;
-  webhookSecret?: string; // set once Pay@ shares the signature scheme
+  payatSubaccountRef?: string;   // replaces payatPrefix going forward
+  onboardingStatus: PayatOnboardingStatus;
+  onboardingNotes?: string;
+  enabled: boolean;              // should only be true once onboardingStatus === 'approved' and payatSubaccountRef is set
+  webhookSecret?: string;
   createdAt: string;
   updatedAt: string;
 }
-
 // Shape returned by the (initially mocked) create-payment endpoint.
 // This is what Phase 3 in the plan returns, and what Phase 4's customer
 // payment screen displays.
@@ -144,3 +145,4 @@ export interface CreatePayAtPaymentResponse {
   status: Extract<PaymentStatus, 'pending'>;
   expiresAt?: string;
 }
+

@@ -67,17 +67,30 @@ const ParlorSelector: React.FC = () => {
 
         // Fetch parlors based on user role
         let parlorQuery = supabase.from('parlors').select('*');
-        
+
         if (profile.role === 'super_admin') {
           // Super admin can see all parlors
           console.log('Super admin - showing all parlors');
-        } else if (profile.parlor_id) {
-          // Admin/staff can only see their assigned parlor
-          parlorQuery = parlorQuery.eq('id', profile.parlor_id);
-          console.log('Admin/staff - showing assigned parlor only:', profile.parlor_id);
         } else {
-          setError('You are not assigned to any parlor. Please contact an administrator.');
-          return;
+          // Everyone else sees whatever parlours they're actually linked
+          // to via user_parlors — could be one (typical staff) or several
+          // (an owner running multiple branches), not just profile.parlor_id.
+          const { data: memberships, error: membershipsError } = await supabase
+            .from('user_parlors')
+            .select('parlor_id')
+            .eq('user_id', user.id);
+
+          if (membershipsError) throw membershipsError;
+
+          const parlorIds = (memberships ?? []).map((m) => m.parlor_id);
+
+          if (parlorIds.length === 0) {
+            setError('You are not assigned to any parlor. Please contact an administrator.');
+            return;
+          }
+
+          parlorQuery = parlorQuery.in('id', parlorIds);
+          console.log('Showing linked parlours:', parlorIds);
         }
 
         const { data: parlorData, error: parlorError } = await parlorQuery;

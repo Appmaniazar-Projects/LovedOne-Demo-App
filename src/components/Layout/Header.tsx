@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { Bell, Search, User, LogOut, Settings, Sun, Moon, Menu } from 'lucide-react';
+import { Bell, Search, User, LogOut, Settings, Sun, Moon, Menu, Building2 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../supabaseClient';
 import { Notification } from '../../types';
@@ -25,6 +25,8 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { theme, toggleTheme } = useTheme();
+
+  const isSuperAdmin = user?.role === 'super_admin';
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -317,6 +319,21 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
 
         {/* Right section */}
         <div className="flex items-center space-x-2 sm:space-x-4 animate-fadeIn animation-delay-300">
+          {/* Switch Parlour — super_admin only. This is the cross-parlour
+              LovedOne-side affordance the multi-parlour work restored;
+              everyone else stays inside their own parlour(s) via
+              RoleBasedRedirect and never needs a manual switcher here. */}
+          {isSuperAdmin && (
+            <Link
+              to="/select-parlor"
+              className="hidden sm:flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700 transition-all duration-300"
+              title="Switch parlour"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Switch Parlour</span>
+            </Link>
+          )}
+
           {/* Notifications */}
           <div className="relative">
             <button
@@ -427,12 +444,12 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
               ) : user && (
                 <>
                   <img
-                    src={user.avatar_url || `https://ui-avatars.com/api/?name=Kgopotso&background=0D8ABC&color=fff`}
-                    alt="Kgopotso"
+                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || 'User')}&background=0D8ABC&color=fff`}
+                    alt={user.full_name || 'User'}
                     className="w-8 h-8 rounded-full transition-transform duration-300 hover:scale-110 hover:rotate-6"
                   />
                   <div className="text-left hidden sm:block">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">Kgopotso</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{user.full_name || 'User'}</p>
                     <p className="text-xs text-slate-500 dark:text-gray-400 capitalize">{user.role}</p>
                   </div>
                 </>
@@ -445,7 +462,7 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
               }`}>
                 {user && (
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-gray-700">
-                    <p className="font-medium text-slate-900 dark:text-white truncate">Kgopotso</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate">{user.full_name || 'User'}</p>
                     <p className="text-sm text-slate-500 dark:text-gray-400 truncate" title={user.email}>{user.email}</p>
                   </div>
                 )}
@@ -458,6 +475,12 @@ const Header: React.FC<HeaderProps> = ({ parlorName, onMenuClick }) => {
                     <Settings className="w-4 h-4" />
                     <span>Settings</span>
                   </Link>
+                  {isSuperAdmin && (
+                    <Link to="/select-parlor" className="w-full flex items-center space-x-2 px-3 py-2 text-left text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg sm:hidden">
+                      <Building2 className="w-4 h-4" />
+                      <span>Switch Parlour</span>
+                    </Link>
+                  )}
                   <hr className="my-2 border-slate-200 dark:border-gray-700" />
                   <button
                     onClick={handleSignOut}

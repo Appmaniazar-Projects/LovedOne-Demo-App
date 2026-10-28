@@ -10,7 +10,9 @@ import {
   BarChart3,
   Bell,
   Settings,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  Repeat
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -26,15 +28,16 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName, isMobile = false, onClose }) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
   const location = useLocation();
   const routeKey = parlorRouteKey || parlorId;
 
   void parlorName;
-  void user;
   void loading;
+
+  const isSuperAdmin = user?.role === 'super_admin';
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${routeKey}/dashboard` },
@@ -45,6 +48,11 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName,
     { id: 'payment-alerts', label: 'Payment Alerts', icon: AlertTriangle, path: `/${routeKey}/payment-alerts` },
     { id: 'services', label: 'Services', icon: Calendar, path: `/${routeKey}/services` },
     { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${routeKey}/reports` },
+    // LovedOne-side, cross-parlour concern — only super_admin manages Pay@Go
+    // onboarding, so this item (and its route) is hidden from every other role.
+    ...(isSuperAdmin
+      ? [{ id: 'payat-onboarding', label: 'Pay@ Onboarding', icon: ShieldCheck, path: `/${routeKey}/payat-onboarding` }]
+      : []),
     { id: 'notifications', label: 'Notifications', icon: Bell, path: `/${routeKey}/notifications` },
     { id: 'settings', label: 'Settings', icon: Settings, path: `/${routeKey}/settings` },
   ];
@@ -53,15 +61,23 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName,
     const fetchUser = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
-        // Fetch user profile from the users table
-        const { data: userProfile } = await supabase
+        // Fetch by id only — NOT filtered by this page's parlorId. A
+        // super_admin (or, once in use, any admin with 2+ parlours) can be
+        // viewing a parlour that isn't their own users.parlor_id, and the
+        // old `.eq('parlor_id', parlorId)` filter silently returned no row
+        // in that case, meaning role-gated nav (like Pay@ Onboarding below)
+        // never showed up for them outside their home parlour.
+        const { data: userProfile, error } = await supabase
           .from('users')
           .select('*')
           .eq('id', authUser.id)
-          .eq('parlor_id', parlorId)
           .single();
-        
-        setUser({ ...authUser, ...userProfile });
+
+        if (error) {
+          console.error('Error fetching user profile for sidebar:', error);
+        } else {
+          setUser(userProfile);
+        }
       }
       setLoading(false);
     };
@@ -114,12 +130,28 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName,
             );
           })}
         </ul>
+
+        {/* Cross-parlour switcher — super_admin only. Non-super_admin users
+            with 2+ parlours (once that's a real case) reach the same
+            /select-parlor route automatically via RoleBasedRedirect when
+            they have no single home parlour, so they don't need this link
+            in daily nav. */}
+        {isSuperAdmin && (
+          <Link
+            to="/select-parlor"
+            onClick={isMobile ? onClose : undefined}
+            className="mt-4 w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-left text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all duration-300"
+          >
+            <Repeat className="w-5 h-5" />
+            <span className="text-sm font-medium">Switch Parlour</span>
+          </Link>
+        )}
       </nav>
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-700 animate-fadeIn animation-delay-500">
         <p className="text-sm text-slate-900 dark:text-slate-400 text-center animate-pulse-text">
-          &copy; 2025 LovedOne<br />
+          &copy; 2026 LovedOne<br />
           Compassionate tech for life's hardest moments
         </p>
       </div>

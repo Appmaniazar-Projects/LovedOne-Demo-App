@@ -19,6 +19,7 @@ import SettingsPage from './components/Settings/SettingsPage';
 import ParlorDetails from './components/Parlor/ParlorDetails';
 import ClientDetails from './components/Clients/ClientDetails';
 import PaymentAlertDashboard from './components/Payments/PaymentAlertDashboard';
+import PayAtOnboarding from './components/Payments/PayAtOnboarding';
 import NotFound from './components/Layout/NotFound';
 
 const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000;
@@ -179,24 +180,35 @@ const RoleBasedRedirect = () => {
         navigate(`/${routeKey}/dashboard`, { replace: true });
       };
 
+      // super_admin can reach every parlour regardless of user_parlors rows
+      // (RLS grants that via is_super_admin(), not membership), so always
+      // let them choose rather than guessing one.
       if (profile.role === 'super_admin') {
-        const { data: parlors, error: parlorsError } = await supabase
-          .from('parlors')
-          .select('id')
-          .limit(1);
+        navigate('/select-parlor', { replace: true });
+        return;
+      }
 
-        if (parlorsError || !parlors || parlors.length === 0) {
-          console.error('Error fetching default parlor for super_admin:', parlorsError);
-          await supabase.auth.signOut();
-          return;
-        }
+      // Everyone else: their real access is whatever's in user_parlors now,
+      // not the single profile.parlor_id. One parlour -> skip straight in,
+      // same as before. Zero or multiple -> let them choose.
+      const { data: memberships, error: membershipsError } = await supabase
+        .from('user_parlors')
+        .select('parlor_id')
+        .eq('user_id', session.user.id);
 
-        await navigateToParlorDashboard(parlors[0].id);
-      } else if (profile.parlor_id) {
-        await navigateToParlorDashboard(profile.parlor_id);
-      } else {
-        console.error('User has no role or assigned parlor.');
+      if (membershipsError) {
+        console.error('Error fetching parlor memberships:', membershipsError);
         await supabase.auth.signOut();
+        return;
+      }
+
+      if (!memberships || memberships.length === 0) {
+        console.error('User has no assigned parlor.');
+        await supabase.auth.signOut();
+      } else if (memberships.length === 1) {
+        await navigateToParlorDashboard(memberships[0].parlor_id);
+      } else {
+        navigate('/select-parlor', { replace: true });
       }
     };
 
@@ -305,6 +317,10 @@ function App() {
         <Route path="tasks" element={<TaskBoard />} />
         <Route path="payments" element={<Payments />} />
         <Route path="payment-alerts" element={<PaymentAlertDashboard />} />
+        {/* super_admin-only inside PayAtOnboarding.tsx itself (renders null
+            for anyone else) — the Sidebar link is also hidden from
+            non-super_admin, so this is defence in depth, not the only gate. */}
+        <Route path="payat-onboarding" element={<PayAtOnboarding />} />
         <Route path="services" element={<Services />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />
