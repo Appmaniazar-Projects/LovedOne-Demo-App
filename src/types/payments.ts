@@ -123,15 +123,25 @@ export interface Payment {
 
 export type PayatOnboardingStatus = 'not_started' | 'link_sent' | 'kyc_pending' | 'approved';
 
+// How a parlour collects Pay@ payments — see PayAtOnboarding.tsx.
+//   platform   – LovedOne's own Pay@ account (testing only)
+//   merchant   – the parlour's own Pay@ account and credentials
+//   integrator – LovedOne integrator account on the parlour's behalf
+export type PayatMode = 'platform' | 'merchant' | 'integrator';
+
 export interface PaymentProviderConfig {
   id: string;
   parlorId: string;
   provider: 'pay_at';
-  payatSubaccountRef?: string;   // replaces payatPrefix going forward
+  payatMode: PayatMode;
+  payatMerchantIdentifier?: string; // integrator mode
   onboardingStatus: PayatOnboardingStatus;
   onboardingNotes?: string;
-  enabled: boolean;              // should only be true once onboardingStatus === 'approved' and payatSubaccountRef is set
-  webhookSecret?: string;
+  enabled: boolean;                 // DB-enforced: approved AND the mode's connection is complete
+  credentialsConfigured: boolean;   // merchant mode; set by payat-admin only
+  credentialsVerifiedAt?: string;
+  webhookKeyCreatedAt?: string;
+  // Client secrets and webhook keys are server-only and never selectable here.
   createdAt: string;
   updatedAt: string;
 }
@@ -141,7 +151,9 @@ export interface PaymentProviderConfig {
 export interface CreatePayAtPaymentResponse {
   paymentId: string;
   reference: string;
-  amount: number;
+  paymentLink: string | null;
+  accountNumber: string;
+  mode: PayatMode;
   status: Extract<PaymentStatus, 'pending'>;
   expiresAt?: string;
 }

@@ -24,7 +24,8 @@ export default {
       const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
       const response = await fetch(
-        "https://staging-go.payat.co.za/yapi/oauth/token",
+        Deno.env.get("PAYAT_TOKEN_URL") ??
+          "https://staging-go.payat.co.za/yapi/oauth/token",
         {
           method: "POST",
           headers: {
