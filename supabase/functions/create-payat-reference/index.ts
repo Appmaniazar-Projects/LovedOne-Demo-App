@@ -140,6 +140,24 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Authorise: the caller must belong to this parlour (or be a super
+    // admin). Without this any logged-in user could raise Pay@ requests
+    // against any parlour, since the queries below use the service role.
+    const callerId = userData.user.id;
+    const [{ data: callerProfile }, { data: membership }] = await Promise.all([
+      supabase.from('users').select('role').eq('id', callerId).maybeSingle(),
+      supabase
+        .from('user_parlors')
+        .select('parlor_id')
+        .eq('user_id', callerId)
+        .eq('parlor_id', parlorId)
+        .maybeSingle(),
+    ]);
+
+    if (callerProfile?.role !== 'super_admin' && !membership) {
+      return json({ error: 'You do not have access to this parlour' }, 403);
+    }
+
     // Read the parlor's Pay@ configuration.
     const { data: config, error: configError } = await supabase
       .from('payment_provider_config')

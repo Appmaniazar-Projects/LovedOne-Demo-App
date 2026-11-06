@@ -34,6 +34,11 @@ const STATUS_LABELS: Record<OnboardingStatus, string> = {
 // <5-digit prefix><9 random digits>, so Pay@ can't be enabled without it.
 const PREFIX_RE = /^\d{5}$/;
 
+// Until Pay@ confirms which identifier routes funds to the parlour
+// (prefix, merchant/subaccount ID, or both), require both before enabling.
+const isReadyToEnable = (prefix: string | null | undefined, subaccountRef: string | null | undefined) =>
+  PREFIX_RE.test(prefix || '') && !!(subaccountRef || '').trim();
+
 const STATUS_ORDER: OnboardingStatus[] = ['not_started', 'link_sent', 'kyc_pending', 'approved'];
 
 const statusColors: Record<OnboardingStatus, string> = {
@@ -135,7 +140,7 @@ const PayAtOnboarding: React.FC = () => {
 
   const handleStatusChange = (status: OnboardingStatus) => {
     // Guard: never let 'enabled' flip true unless approved + a valid saved prefix.
-    const nextEnabled = status === 'approved' && PREFIX_RE.test(config?.payat_prefix || '');
+    const nextEnabled = status === 'approved' && isReadyToEnable(config?.payat_prefix, config?.payat_subaccount_ref);
     upsertConfig({ onboarding_status: status, enabled: nextEnabled });
   };
 
@@ -144,7 +149,7 @@ const PayAtOnboarding: React.FC = () => {
       toast.error('The Pay@ prefix must be exactly 5 digits.');
       return;
     }
-    const nextEnabled = config?.onboarding_status === 'approved' && prefixValid;
+    const nextEnabled = config?.onboarding_status === 'approved' && isReadyToEnable(prefix, subaccountRef);
     upsertConfig({
       payat_subaccount_ref: subaccountRef || null,
       payat_prefix: prefix || null,
@@ -210,9 +215,9 @@ const PayAtOnboarding: React.FC = () => {
             </button>
           ))}
         </div>
-        {status === 'approved' && !PREFIX_RE.test(config?.payat_prefix || '') && (
+        {status === 'approved' && !isReadyToEnable(config?.payat_prefix, config?.payat_subaccount_ref) && (
           <p className="text-xs text-amber-600 mt-2">
-            Marked approved but no valid 5-digit Pay@ prefix is saved yet — Pay@ won't be enabled until you add it below and save.
+            Marked approved, but Pay@ won't be enabled until both the 5-digit prefix and the subaccount reference are saved below.
           </p>
         )}
       </div>
@@ -244,14 +249,14 @@ const PayAtOnboarding: React.FC = () => {
           }`}
         />
         <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-          The 5-digit prefix Pay@ issues for this parlour. Every Pay@ account number starts with it. Required before Pay@ can be enabled.
+          The 5-digit prefix Pay@ issued for this parlour. Every Pay@ account number for this parlour starts with it.
         </p>
         {prefix && !prefixValid && <p className="text-xs text-red-600 mt-1">Must be exactly 5 digits.</p>}
       </div>
 
       <div>
         <label htmlFor="subaccountRef" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-          Pay@ subaccount reference
+          Pay@ subaccount reference <span className="text-red-500">*</span>
         </label>
         <input
           id="subaccountRef"
@@ -290,7 +295,7 @@ const PayAtOnboarding: React.FC = () => {
 
       <p className="text-xs text-slate-400 pt-2 border-t border-slate-100 dark:border-gray-700">
         Pay@ for this parlour is {config?.enabled ? 'ENABLED' : 'disabled'} for customer-facing payments — this flips
-        automatically to enabled only when status is "Approved" and a valid 5-digit prefix is saved.
+        automatically to enabled only when status is "Approved" and both a valid 5-digit prefix and a subaccount reference are saved.
       </p>
     </div>
   );
