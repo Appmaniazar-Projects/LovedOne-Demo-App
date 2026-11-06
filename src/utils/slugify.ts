@@ -25,8 +25,18 @@ export const slugify = (name: string): string => {
  * This will need to be used in the component to query the database
  */
 export const getClientBySlug = async (slug: string, supabase: any, parlorId?: string) => {
-  console.log('Looking up client with slug:', slug, 'parlorId:', parlorId);
-  
+  // New-style slugs end in the client's id ("name--<uuid>"): exact lookup.
+  const idMatch = slug.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  if (idMatch) {
+    let byId = supabase.from('clients').select('*').eq('id', idMatch[0]);
+    if (parlorId) byId = byId.eq('parlor_id', parlorId);
+    const { data, error } = await byId.maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  // Legacy name-only slugs (old bookmarks/links).
+
   // Convert slug back to a more readable name format for searching
   const nameFromSlug = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   console.log('Converted slug to name:', nameFromSlug);

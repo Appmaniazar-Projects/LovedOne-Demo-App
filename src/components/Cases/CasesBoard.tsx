@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { Client, DeceasedProfile } from '../../types';
-import { slugify } from '../../utils/slugify';
+import { clientSlug } from '../Clients/clientShared';
 import CasePaymentStatusBadge from './CasePaymentStatusBadge';
 
 interface StaffProfile {
@@ -1059,8 +1059,7 @@ const CasesBoard: React.FC = () => {
                     onClick={() => {
                       const client = clients.find(c => c.id === selectedCase.clientId);
                       if (client) {
-                        const slug = slugify(client.name);
-                        window.location.href = `/${currentParlorId}/clients/${slug}`;
+                        window.location.href = `/${currentParlorId}/clients/${clientSlug(client)}`;
                       }
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

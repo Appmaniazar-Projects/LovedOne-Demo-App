@@ -6,7 +6,7 @@ import AddClientModal from './AddClientModal';
 import { useNavigate, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Plan, Dependant, Payment } from '../../types';
-import { slugify } from '../../utils/slugify';
+import { clientSlug } from './clientShared';
 
 export interface Client {
   id: string;
@@ -16,6 +16,9 @@ export interface Client {
   phone: string;
   address: string;
   cultural_preferences: string;
+  id_number?: string | null;
+  date_of_birth?: string | null;
+  policy_start_date?: string | null;
   plan_id?: string | null;
   status: 'active' | 'lapsed' | 'deceased';
   parlor_id?: string;
@@ -42,6 +45,7 @@ const Clients: React.FC = () => {
   const { parlorId: parlorKey } = useParams<{ parlorId: string }>();
   const outlet = useOutletContext<{ parlorId: string; parlorRouteKey: string; parlorName: string }>();
   const resolvedParlorId = outlet?.parlorId || '';
+  const parlorRouteKey = outlet?.parlorRouteKey || resolvedParlorId;
   void parlorKey;
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,7 +227,9 @@ const Clients: React.FC = () => {
     client =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (client.phone && client.phone.includes(searchTerm))
+      (client.phone && client.phone.includes(searchTerm)) ||
+      (client.id_number && client.id_number.includes(searchTerm.trim())) ||
+      (client.dependants || []).some((d) => d.name?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
@@ -266,7 +272,7 @@ const Clients: React.FC = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search clients..."
+            placeholder="Search by name, phone, email, ID number or dependant..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -288,7 +294,7 @@ const Clients: React.FC = () => {
             <div
               key={client.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow cursor-pointer border border-gray-200 dark:border-gray-700"
-              onClick={() => navigate(`/${resolvedParlorId}/clients/${slugify(client.name)}`)}
+              onClick={() => navigate(`/${parlorRouteKey}/clients/${clientSlug(client)}`)}
             >
               <div className="p-6">
                 <div className="flex justify-between items-start">
@@ -344,7 +350,7 @@ const Clients: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/${resolvedParlorId}/clients/${slugify(client.name)}`);
+                        navigate(`/${parlorRouteKey}/clients/${clientSlug(client)}`);
                       }}
                       className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
                     >
@@ -357,7 +363,7 @@ const Clients: React.FC = () => {
                         <span>{client.document_count || 0} docs</span>
                       </div>
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(client.created_at).toLocaleDateString()}
+                        {new Date(client.created_at).toLocaleDateString('en-ZA')}
                       </span>
                     </div>
                   </div>
@@ -400,9 +406,9 @@ const Clients: React.FC = () => {
           parlorId={currentParlorId}
           onClientAdded={(newClient: Client) => {
             console.log('New client added:', newClient);
-            const clientWithDocCount = { ...newClient, document_count: 0 };
+            const clientWithDocCount = { ...newClient, document_count: newClient.document_count ?? 0 };
             setClients((prevClients) => {
-              return [...prevClients, clientWithDocCount];
+              return [clientWithDocCount, ...prevClients];
             });
             setIsModalOpen(false);
           }}

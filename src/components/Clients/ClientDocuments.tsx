@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, FileText, Download, Eye, Trash2, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
+import { CLIENT_DOCUMENT_TYPES } from './clientShared';
 
  const STORAGE_BUCKET = 'clients';
  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -31,14 +32,7 @@ interface ClientDocumentsProps {
   clientName: string;
 }
 
-const REQUIRED_DOCUMENTS = [
-  { type: 'id_document', label: 'ID Document', description: 'Valid South African ID or Passport' },
-  { type: 'proof_of_residence', label: 'Proof of Residence', description: 'Recent utility bill or bank statement' },
-  { type: 'death_certificate', label: 'Death Certificate', description: 'Official death certificate (if applicable)' },
-  { type: 'insurance_policy', label: 'Insurance Policy', description: 'Funeral insurance policy documents' },
-  { type: 'marriage_certificate', label: 'Marriage Certificate', description: 'Marriage certificate (if applicable)' },
-  { type: 'other', label: 'Other Documents', description: 'Any additional supporting documents' }
-];
+const REQUIRED_DOCUMENTS = CLIENT_DOCUMENT_TYPES;
 
 const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, clientName }) => {
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
