@@ -8,6 +8,12 @@
 //   { action: 'invite',   parlorId, email, fullName, role: 'staff' | 'admin', redirectTo? }
 //   { action: 'set_role', parlorId, userId, role: 'staff' | 'admin' }
 //   { action: 'remove',   parlorId, userId }
+//   { action: 'new_link', parlorId, userId, redirectTo? }  -- fresh set-password link for someone who hasn't signed in yet
+//
+// No custom SMTP is configured, and Supabase's built-in mailer only emails
+// the project's own team. So invites are NOT emailed: we generate the
+// invite link (admin.generateLink sends nothing) and return it for the
+// admin to share with the person directly, e.g. on WhatsApp.
 
 import { serve } from 'https://deno.land/std@0.203.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -112,6 +118,7 @@ serve(async (req) => {
 
       let userId: string;
       let invited = false;
+      let inviteLink: string | null = null;
       if (existing) {
         userId = existing.id;
         if (await isMember(admin, userId, parlorId)) {
@@ -131,16 +138,18 @@ serve(async (req) => {
         }
       } else {
         const redirectTo = typeof body.redirectTo === 'string' ? body.redirectTo : undefined;
-        const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-          data: { full_name: fullName },
-          redirectTo,
+        const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+          type: 'invite',
+          email,
+          options: { data: { full_name: fullName }, redirectTo },
         });
-        if (inviteError || !inviteData.user) {
-          console.error('Invite failed:', inviteError);
-          return json({ error: inviteError?.message || 'Could not send the invite' }, 400);
+        if (linkErr || !linkData?.user) {
+          console.error('Invite link failed:', linkErr);
+          return json({ error: linkErr?.message || 'Could not create the invite' }, 400);
         }
-        userId = inviteData.user.id;
+        userId = linkData.user.id;
         invited = true;
+        inviteLink = linkData.properties?.action_link ?? null;
 
         // The signup trigger creates the users row as 'viewer'; set it up.
         const { error: upsertError } = await admin
@@ -152,7 +161,7 @@ serve(async (req) => {
       const { error: linkError } = await admin.from('user_parlors').insert({ user_id: userId, parlor_id: parlorId });
       if (linkError) throw linkError;
 
-      return json({ ok: true, userId, invited });
+      return json({ ok: true, userId, invited, inviteLink });
     }
 
     // ── set_role / remove: the target must be on this parlour ───────────
@@ -170,6 +179,22 @@ serve(async (req) => {
       const { error } = await admin.from('users').update({ role: body.role }).eq('id', targetId);
       if (error) throw error;
       return json({ ok: true });
+    }
+
+    if (action === 'new_link') {
+      // Only for people who have never signed in (the link sets their password).
+      const { data: authUser } = await admin.auth.admin.getUserById(targetId);
+      const u = authUser?.user;
+      if (!u?.email) return json({ error: 'User not found' }, 404);
+      if (u.last_sign_in_at) return json({ error: 'This person has already set up their login' }, 400);
+      const redirectTo = typeof body.redirectTo === 'string' ? body.redirectTo : undefined;
+      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+        type: 'recovery',
+        email: u.email,
+        options: { redirectTo },
+      });
+      if (linkErr) return json({ error: linkErr.message || 'Could not create a new link' }, 400);
+      return json({ ok: true, inviteLink: linkData.properties?.action_link ?? null });
     }
 
     if (action === 'remove') {

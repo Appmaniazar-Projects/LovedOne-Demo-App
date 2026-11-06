@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Loader2, UserPlus, Users, X, Mail, Trash2 } from 'lucide-react';
+import { Loader2, UserPlus, Users, X, Mail, Trash2, Copy, Link2, MessageCircle } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { isValidEmail } from '../../utils/saId';
 
@@ -62,6 +62,8 @@ const TeamPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'staff' | 'admin'>('staff');
   const [inviting, setInviting] = useState(false);
+  // The invite link to hand over (no email is sent — see manage-staff).
+  const [share, setShare] = useState<{ name: string; link: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!parlorId) return;
@@ -102,13 +104,13 @@ const TeamPage: React.FC = () => {
         role,
         redirectTo: `${window.location.origin}/set-password`,
       });
-      toast.success(
-        result?.invited
-          ? `Invite sent to ${email.trim()}. They'll set a password from the email.`
-          : `${fullName.trim()} already had a LovedOne login and now has access to ${parlorName}.`,
-        { duration: 6000 },
-      );
+      const name = fullName.trim();
       resetInvite();
+      if (result?.invited && result?.inviteLink) {
+        setShare({ name, link: result.inviteLink });
+      } else {
+        toast.success(`${name} already had a LovedOne login and now has access to ${parlorName}.`, { duration: 6000 });
+      }
       load();
     } catch (err: any) {
       toast.error(err.message);
@@ -130,6 +132,37 @@ const TeamPage: React.FC = () => {
       setBusyId(null);
     }
   };
+
+  const newLink = async (m: Member) => {
+    setBusyId(m.id);
+    try {
+      const result = await callManageStaff({
+        action: 'new_link',
+        parlorId,
+        userId: m.id,
+        redirectTo: `${window.location.origin}/set-password`,
+      });
+      if (result?.inviteLink) setShare({ name: m.full_name || m.email || 'them', link: result.inviteLink });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const copyLink = async () => {
+    if (!share) return;
+    try {
+      await navigator.clipboard.writeText(share.link);
+      toast.success('Link copied.');
+    } catch {
+      toast.error('Could not copy. Select the link and copy it manually.');
+    }
+  };
+
+  const whatsappText = share
+    ? `Hi ${share.name.split(' ')[0]}, you've been added to ${parlorName} on LovedOne. Open this link to set your password and sign in (it expires soon, so please use it today): ${share.link}`
+    : '';
 
   const remove = async (m: Member) => {
     if (!window.confirm(`Remove ${m.full_name || m.email} from ${parlorName}? They won't be able to open this parlour any more. Their login isn't deleted.`)) return;
@@ -211,8 +244,19 @@ const TeamPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {m.pending ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                            <Mail className="w-3 h-3" /> Invite sent
+                          <span className="inline-flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                              <Mail className="w-3 h-3" /> Not set up yet
+                            </span>
+                            {!locked && (
+                              <button
+                                onClick={() => newLink(m)}
+                                disabled={busyId === m.id}
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                              >
+                                <Link2 className="w-3 h-3" /> New link
+                              </button>
+                            )}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Active</span>
@@ -243,6 +287,35 @@ const TeamPage: React.FC = () => {
         A person's role applies everywhere they work: someone who is an admin here is also an admin at any other parlour they belong to.
       </p>
 
+      {share && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setShare(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600" aria-label="Close">
+              <X className="w-6 h-6" />
+            </button>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Send {share.name} their link</h2>
+            <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">
+              This link signs them in to set their password. Send it only to {share.name.split(' ')[0]}, and ask them to use it today: it expires (1 hour by default). If it runs out, use <strong>New link</strong> on the Team page.
+            </p>
+            <textarea readOnly value={share.link} rows={3} onFocus={(e) => e.currentTarget.select()} className="w-full px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-gray-800 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-white mb-4" />
+            <div className="flex flex-wrap justify-end gap-2">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(whatsappText)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+              >
+                <MessageCircle className="w-4 h-4" /> Send on WhatsApp
+              </a>
+              <button onClick={copyLink} className="inline-flex items-center gap-1 px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-white">
+                <Copy className="w-4 h-4" /> Copy link
+              </button>
+              <button onClick={() => setShare(null)} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {inviteOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-full max-w-md p-6 relative">
@@ -251,7 +324,7 @@ const TeamPage: React.FC = () => {
             </button>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Add team member</h2>
             <p className="text-sm text-slate-600 dark:text-gray-300 mb-5">
-              They'll get an email to set a password and will land straight in {parlorName}.
+              You'll get a personal link to send them (e.g. on WhatsApp). They open it, set a password, and land straight in {parlorName}.
             </p>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
@@ -278,7 +351,7 @@ const TeamPage: React.FC = () => {
                 <button type="button" onClick={resetInvite} className="px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-900 dark:text-white">Cancel</button>
                 <button type="submit" disabled={inviting} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 inline-flex items-center gap-2">
                   {inviting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {inviting ? 'Sending…' : 'Send invite'}
+                  {inviting ? 'Creating…' : 'Create invite link'}
                 </button>
               </div>
             </form>

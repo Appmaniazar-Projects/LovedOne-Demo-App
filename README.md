@@ -49,15 +49,16 @@ You need the Developer role (or higher) on the Supabase project. Secrets go in S
 | Function | Purpose | State |
 | --- | --- | --- |
 | `create-payat-reference` | Create a Pay@ payment request (account number, link) | Working on Pay@ staging |
-| `manage-staff` | Team page: list, invite, change role, remove parlor staff | Built; deploy before use |
+| `manage-staff` | Team page: list, invite (link, no email), new link, change role, remove | Built; deploy before use |
 | `payat-callback` | Pay@ "paid" notification | **Mock:** waiting on Pay@'s spec |
 | `payat-auth` | Checks Pay@ credentials | Diagnostic only |
 
 Secrets: `PAYAT_CLIENT_ID`, `PAYAT_CLIENT_SECRET`.
 
-Supabase Auth settings needed for staff invites:
-- Add `https://tlosystems.co.za/set-password` and `http://localhost:5173/set-password` to the Redirect URLs.
-- Set up custom SMTP.
+Staff invites send **no email** (no SMTP is configured, and Supabase's built-in mailer only emails the Supabase project team). `manage-staff` generates the invite link, and the admin sends it on WhatsApp or copies it. Supabase settings:
+- Add `https://tlosystems.co.za/set-password` and `http://localhost:5173/set-password` to Authentication → URL Configuration → Redirect URLs.
+- Optional: raise the link lifetime (default 1 hour) under Authentication → Providers → Email → Email OTP Expiration (max 24 hours).
+- If custom SMTP is set up later, invites could be emailed instead (`auth.admin.inviteUserByEmail`).
 
 ## Where things live
 
