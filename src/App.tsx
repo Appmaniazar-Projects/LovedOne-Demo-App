@@ -22,6 +22,8 @@ import PaymentAlertDashboard from './components/Payments/PaymentAlertDashboard';
 import PayAtOnboarding from './components/Payments/PayAtOnboarding';
 import NotFound from './components/Layout/NotFound';
 import AppLoader from './components/Layout/AppLoader';
+import TeamPage from './components/Team/TeamPage';
+import SetPasswordPage from './components/Auth/SetPasswordPage';
 
 const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
@@ -340,6 +342,7 @@ function App() {
         </div>
       } />
       <Route path="/login" element={<AuthRedirect />} />
+      <Route path="/set-password" element={<SetPasswordPage />} />
       <Route path="/" element={<RoleBasedRedirect />} />
       <Route path="/select-parlor" element={<ParlorSelector />} />
       <Route path="/parlors/:id" element={<ParlorDetails />} />
@@ -358,6 +361,7 @@ function App() {
         <Route path="payat-onboarding" element={<PayAtOnboarding />} />
         <Route path="services" element={<Services />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="team" element={<TeamPage />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />

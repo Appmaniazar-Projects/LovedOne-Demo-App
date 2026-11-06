@@ -12,7 +12,8 @@ import {
   Settings,
   AlertTriangle,
   ShieldCheck,
-  Repeat
+  Repeat,
+  UserCog
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -38,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName,
   void loading;
 
   const isSuperAdmin = user?.role === 'super_admin';
+  const canManageTeam = isSuperAdmin || user?.role === 'admin';
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: `/${routeKey}/dashboard` },
@@ -48,6 +50,8 @@ const Sidebar: React.FC<SidebarProps> = ({ parlorId, parlorRouteKey, parlorName,
     { id: 'payment-alerts', label: 'Payment Alerts', icon: AlertTriangle, path: `/${routeKey}/payment-alerts` },
     { id: 'services', label: 'Services', icon: Calendar, path: `/${routeKey}/services` },
     { id: 'reports', label: 'Reports', icon: BarChart3, path: `/${routeKey}/reports` },
+    // Parlour admins (and super admins) manage who can use this parlour.
+    ...(canManageTeam ? [{ id: 'team', label: 'Team', icon: UserCog, path: `/${routeKey}/team` }] : []),
     // LovedOne-side, cross-parlour concern — only super_admin manages Pay@Go
     // onboarding, so this item (and its route) is hidden from every other role.
     ...(isSuperAdmin
