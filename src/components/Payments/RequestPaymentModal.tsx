@@ -216,6 +216,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
               >
                 {payAtEnabled && <option value="pay_at">Pay@ (till, banking app, link or QR)</option>}
+                <option value="cash">Cash (received in person)</option>
                 <option value="eft">Bank Transfer (EFT)</option>
                 <option value="pop">Upload Proof of Payment (POP)</option>
               </select>
