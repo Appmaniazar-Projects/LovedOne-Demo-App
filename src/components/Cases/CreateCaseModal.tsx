@@ -9,7 +9,7 @@ interface CreateCaseModalProps {
   onClose: () => void;
   clientId: string;
   clientName: string;
-  dependants?: Array<{ id: string; name: string; relationship: string }>;
+  dependants?: Array<{ id: string; name: string; relationship: string; date_of_birth?: string | null }>;
   onCaseCreated: (newCase: Case) => void;
   parlorId: string;
 }
@@ -56,7 +56,7 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       // Fetch the client to get their plan
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
-        .select('plan_id, plan:plan_id(id, name)')
+        .select('plan_id, date_of_birth, plan:plan_id(id, name)')
         .eq('id', clientId)
         .single();
 
@@ -65,7 +65,12 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         return;
       }
 
-      const plan = clientData?.plan?.[0] ?? clientData?.plan;
+      // Default the deceased's date of birth to the policy holder's.
+      if ((clientData as any)?.date_of_birth) {
+        setFormData(prev => (prev.isDependant ? prev : { ...prev, dateOfBirth: new Date((clientData as any).date_of_birth) }));
+      }
+
+      const plan = (clientData as any)?.plan?.[0] ?? (clientData as any)?.plan;
       if (clientData?.plan_id && plan) {
         setClientPlan({
           id: clientData.plan_id,
@@ -89,14 +94,27 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         throw new Error('You must be logged in to create a case');
       }
 
-      const caseData = {
-        deceased_name: formData.name,
+      const dependant = formData.isDependant ? dependants.find(d => d.id === formData.dependantId) : undefined;
+      if (formData.isDependant && !dependant) {
+        throw new Error('Please select which dependant passed away');
+      }
+      if (isNaN(formData.dateOfBirth.getTime()) || isNaN(formData.dateOfDeath.getTime())) {
+        throw new Error('Please enter valid dates of birth and death');
+      }
+
+      const caseData: Record<string, unknown> = {
+        // The dependant's own name when a dependant passed away (previously
+        // the policy holder's name was saved by mistake).
+        deceased_name: dependant ? dependant.name : formData.name,
         date_of_birth: formData.dateOfBirth.toISOString(),
         date_of_death: formData.dateOfDeath.toISOString(),
         case_status: formData.status,           // maps to 'quote' | 'ongoing' | 'closed'
         assigned_director: formData.assignedDirector || null,
         cultural_requirements: formData.culturalRequirements || null,
-        client_id: formData.isDependant ? undefined : clientId,
+        // Always link the case to the policy holder so it shows on their
+        // client page; dependant_id records which dependant it was for.
+        client_id: clientId,
+        dependant_id: dependant ? dependant.id : null,
         plan_id: clientPlan?.id || null,        // Use client's plan if available
         parlor_id: parlorId,                    // required — cases.parlor_id has no default
         service_type_id: null,                  // TODO: add a service type selector if the form needs one
@@ -136,7 +154,15 @@ const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   };
 
   const handleInputChange = (field: keyof typeof formData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      // Picking a dependant fills in their date of birth when we have it.
+      if (field === 'dependantId') {
+        const dob = dependants.find(d => d.id === value)?.date_of_birth;
+        if (dob) next.dateOfBirth = new Date(dob);
+      }
+      return next;
+    });
   };
 
   if (!isOpen) return null;

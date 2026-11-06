@@ -97,14 +97,20 @@ const ClientDetails: React.FC = () => {
     const [depRes, planRes, caseRes, payRes] = await Promise.all([
       supabase.from('dependants').select('*').eq('client_id', c.id).order('created_at'),
       supabase.from('plans').select('*').eq('parlor_id', c.parlor_id).order('name'),
-      supabase.from('cases').select('id, deceased_name, case_status, created_at').eq('client_id', c.id).order('created_at', { ascending: false }),
+      supabase.from('cases').select('id, deceased_name, case_status, created_at, dependant_id').eq('client_id', c.id).order('created_at', { ascending: false }),
       supabase.from('payments').select('id, description, amount, status, method, created_at').eq('client_id', c.id).order('created_at', { ascending: false }).limit(20),
     ]);
     if (depRes.error) console.error('Error fetching dependants:', depRes.error);
     setDependants((depRes.data as DependantRow[]) || []);
     setPlans((planRes.data as Plan[]) || []);
-    if (caseRes.error) console.warn('Could not load cases for client:', caseRes.error.message);
-    setCases(caseRes.data || []);
+    let caseRows: any[] = caseRes.data || [];
+    if (caseRes.error) {
+      // Before the cases.dependant_id migration runs, fall back to the old columns.
+      console.warn('Could not load cases with dependant_id, retrying without:', caseRes.error.message);
+      const retry = await supabase.from('cases').select('id, deceased_name, case_status, created_at').eq('client_id', c.id).order('created_at', { ascending: false });
+      caseRows = retry.data || [];
+    }
+    setCases(caseRows);
     if (payRes.error) console.warn('Could not load payments for client:', payRes.error.message);
     setPayments(payRes.data || []);
   };
@@ -481,7 +487,14 @@ const ClientDetails: React.FC = () => {
             <ul className="divide-y divide-gray-100 dark:divide-gray-700">
               {cases.map((c) => (
                 <li key={c.id} className="py-2 flex items-center justify-between text-sm">
-                  <span className="text-gray-800 dark:text-gray-200 font-medium">{c.deceased_name || 'Unnamed case'}</span>
+                  <span className="text-gray-800 dark:text-gray-200 font-medium">
+                    {c.deceased_name || 'Unnamed case'}
+                    <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                      {c.dependant_id
+                        ? `Dependant${dependants.find((d) => d.id === c.dependant_id) ? ` · ${dependants.find((d) => d.id === c.dependant_id)!.relationship}` : ''}`
+                        : 'Policy holder'}
+                    </span>
+                  </span>
                   <span className="text-gray-500 dark:text-gray-400 capitalize">{c.case_status || '—'} · {formatDate(c.created_at)}</span>
                 </li>
               ))}
