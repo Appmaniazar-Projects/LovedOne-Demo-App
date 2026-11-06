@@ -17,6 +17,7 @@ interface ProviderConfigRow {
   parlor_id: string;
   provider: 'pay_at';
   payat_subaccount_ref: string | null;
+  payat_prefix: string | null;
   onboarding_status: OnboardingStatus;
   onboarding_notes: string | null;
   enabled: boolean;
@@ -28,6 +29,10 @@ const STATUS_LABELS: Record<OnboardingStatus, string> = {
   kyc_pending: 'KYC pending with Pay@',
   approved: 'Approved',
 };
+
+// create-payat-reference builds the payable account number as
+// <5-digit prefix><9 random digits>, so Pay@ can't be enabled without it.
+const PREFIX_RE = /^\d{5}$/;
 
 const STATUS_ORDER: OnboardingStatus[] = ['not_started', 'link_sent', 'kyc_pending', 'approved'];
 
@@ -49,6 +54,8 @@ const PayAtOnboarding: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<ProviderConfigRow | null>(null);
   const [subaccountRef, setSubaccountRef] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const prefixValid = PREFIX_RE.test(prefix);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -88,6 +95,7 @@ const PayAtOnboarding: React.FC = () => {
     } else if (data) {
       setConfig(data as ProviderConfigRow);
       setSubaccountRef(data.payat_subaccount_ref || '');
+      setPrefix(data.payat_prefix || '');
       setNotes(data.onboarding_notes || '');
     } else {
       setConfig(null);
@@ -126,14 +134,23 @@ const PayAtOnboarding: React.FC = () => {
   };
 
   const handleStatusChange = (status: OnboardingStatus) => {
-    // Guard: never let 'enabled' flip true unless approved + subaccount ref present.
-    const nextEnabled = status === 'approved' && !!subaccountRef;
+    // Guard: never let 'enabled' flip true unless approved + a valid saved prefix.
+    const nextEnabled = status === 'approved' && PREFIX_RE.test(config?.payat_prefix || '');
     upsertConfig({ onboarding_status: status, enabled: nextEnabled });
   };
 
   const handleSaveDetails = () => {
-    const nextEnabled = config?.onboarding_status === 'approved' && !!subaccountRef;
-    upsertConfig({ payat_subaccount_ref: subaccountRef || null, onboarding_notes: notes || null, enabled: nextEnabled });
+    if (prefix && !prefixValid) {
+      toast.error('The Pay@ prefix must be exactly 5 digits.');
+      return;
+    }
+    const nextEnabled = config?.onboarding_status === 'approved' && prefixValid;
+    upsertConfig({
+      payat_subaccount_ref: subaccountRef || null,
+      payat_prefix: prefix || null,
+      onboarding_notes: notes || null,
+      enabled: nextEnabled,
+    });
   };
 
   const copySignupLink = () => {
@@ -193,9 +210,9 @@ const PayAtOnboarding: React.FC = () => {
             </button>
           ))}
         </div>
-        {status === 'approved' && !subaccountRef && (
+        {status === 'approved' && !PREFIX_RE.test(config?.payat_prefix || '') && (
           <p className="text-xs text-amber-600 mt-2">
-            Marked approved but no subaccount reference is saved yet — Pay@ won't actually be enabled until you add it below.
+            Marked approved but no valid 5-digit Pay@ prefix is saved yet — Pay@ won't be enabled until you add it below and save.
           </p>
         )}
       </div>
@@ -208,6 +225,28 @@ const PayAtOnboarding: React.FC = () => {
           <Copy className="w-4 h-4" />
           Copy sign-up link for this parlour
         </button>
+      </div>
+
+      <div>
+        <label htmlFor="payatPrefix" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+          Pay@ prefix <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="payatPrefix"
+          type="text"
+          inputMode="numeric"
+          maxLength={5}
+          value={prefix}
+          onChange={(e) => setPrefix(e.target.value.replace(/\D/g, '').slice(0, 5))}
+          placeholder="e.g. 11234"
+          className={`w-full px-3 py-2 bg-white dark:bg-gray-700 border rounded-lg text-slate-900 dark:text-white font-mono tracking-wider ${
+            prefix && !prefixValid ? 'border-red-500' : 'border-slate-300 dark:border-gray-600'
+          }`}
+        />
+        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+          The 5-digit prefix Pay@ issues for this parlour. Every Pay@ account number starts with it. Required before Pay@ can be enabled.
+        </p>
+        {prefix && !prefixValid && <p className="text-xs text-red-600 mt-1">Must be exactly 5 digits.</p>}
       </div>
 
       <div>
@@ -251,7 +290,7 @@ const PayAtOnboarding: React.FC = () => {
 
       <p className="text-xs text-slate-400 pt-2 border-t border-slate-100 dark:border-gray-700">
         Pay@ for this parlour is {config?.enabled ? 'ENABLED' : 'disabled'} for customer-facing payments — this flips
-        automatically to enabled only when status is "Approved" and a subaccount reference is saved.
+        automatically to enabled only when status is "Approved" and a valid 5-digit prefix is saved.
       </p>
     </div>
   );

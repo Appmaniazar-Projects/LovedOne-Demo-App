@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
 import { DeceasedProfile } from '../../types';
 import { normalizePaymentMethod, PaymentMethod } from '../../types/payments';
+import PayAtPaymentForm from './PayAtPaymentForm';
 
 interface RequestPaymentModalProps {
   isOpen: boolean;
@@ -19,21 +20,38 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [cases, setCases] = useState<DeceasedProfile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('eft_pop');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('eft');
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [payAtEnabled, setPayAtEnabled] = useState(false);
 
   useEffect(() => {
     if (isOpen && parlorId) {
       fetchCases();
+      fetchPayAtEnabled();
     } else if (!isOpen) {
       // Reset form when modal closes
       setSelectedCaseId('');
       setCases([]);
       setAmount('');
       setDescription('');
-      setSelectedMethod('eft_pop');
+      setSelectedMethod('eft');
+      setProofFile(null);
     }
   }, [isOpen, parlorId]);
+
+  const fetchPayAtEnabled = async () => {
+    const { data, error } = await supabase
+      .from('payment_provider_config')
+      .select('enabled')
+      .eq('parlor_id', parlorId)
+      .eq('provider', 'pay_at')
+      .maybeSingle();
+    if (error) console.warn('Could not load Pay@ config:', error.message);
+    const enabled = !!data?.enabled;
+    setPayAtEnabled(enabled);
+    // Pay@ is the gateway method — default to it whenever the parlour has it.
+    if (enabled) setSelectedMethod('pay_at');
+  };
 
   const fetchCases = async () => {
     try {
@@ -174,7 +192,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="rounded-lg shadow-2xl w-full max-w-md relative bg-white/30 dark:bg-gray-900/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
+      <div className="rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative bg-white dark:bg-gray-900 border border-white/20 dark:border-gray-700/50">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
@@ -184,18 +202,12 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
 
         <div className="p-6">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Request Payment</h2>
-          <p className="text-slate-800 dark:text-gray-200 mb-6">Enter payment details to generate a payment request</p>
+          <p className="text-slate-800 dark:text-gray-200 mb-6">Create a Pay@ request the customer can pay anywhere, or record a manual payment</p>
           
-          <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
-            <div>
-              <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">
-                Pay@ covers most gateway payment methods. Use the manual request below for offline or legacy payment tracking.
-              </p>
-            </div>
-
+          <div className="space-y-4 mb-4">
             <div>
               <label htmlFor="method" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                Manual Method
+                Payment method
               </label>
               <select
                 id="method"
@@ -203,11 +215,51 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
                 onChange={(e) => setSelectedMethod(e.target.value as any)}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
               >
+                {payAtEnabled && <option value="pay_at">Pay@ (till, banking app, link or QR)</option>}
                 <option value="eft">Bank Transfer (EFT)</option>
-                <option value="payat">Pay@</option>
                 <option value="pop">Upload Proof of Payment (POP)</option>
               </select>
+              {!payAtEnabled && (
+                <p className="text-xs text-slate-500 mt-1">Pay@ isn't enabled for this parlour yet (complete Pay@ onboarding first).</p>
+              )}
+            </div>
 
+            <div>
+              <label htmlFor="case" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
+                Related Case (Optional)
+              </label>
+              <select
+                id="case"
+                value={selectedCaseId}
+                onChange={(e) => setSelectedCaseId(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
+              >
+                <option value="">No case selected</option>
+                {cases.map((caseItem) => (
+                  <option key={caseItem.id} value={caseItem.id}>
+                    {caseItem.name} - {caseItem.status.charAt(0).toUpperCase() + caseItem.status.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+          </div>
+
+          {selectedMethod === 'pay_at' ? (
+            <PayAtPaymentForm
+              key={selectedCaseId || "no-case"}
+              parlorId={parlorId}
+              caseId={selectedCaseId || undefined}
+              clientId={cases.find((c) => c.id === selectedCaseId)?.clientId || undefined}
+              onCancel={onClose}
+              onDone={() => {
+                onPaymentCreated?.();
+                onClose();
+              }}
+            />
+          ) : (
+          <form id="request-payment-form" onSubmit={handleRequestPayment} className="space-y-4">
+            <div>
               {(selectedMethod === 'pop' || selectedMethod === 'eft_pop' || selectedMethod === 'eft') && (
                 <div className="mt-3">
                   <label className="block text-sm font-medium text-slate-900 dark:text-white mb-1">Proof of Payment</label>
@@ -237,25 +289,6 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
                 required
               />
-            </div>
-
-            <div>
-              <label htmlFor="case" className="block text-sm font-medium text-slate-900 dark:text-white mb-1">
-                Related Case (Optional)
-              </label>
-              <select
-                id="case"
-                value={selectedCaseId}
-                onChange={(e) => setSelectedCaseId(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-slate-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900 dark:text-white"
-              >
-                <option value="">No case selected</option>
-                {cases.map((caseItem) => (
-                  <option key={caseItem.id} value={caseItem.id}>
-                    {caseItem.name} - {caseItem.status.charAt(0).toUpperCase() + caseItem.status.slice(1)}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div>
@@ -291,6 +324,7 @@ const RequestPaymentModal: React.FC<RequestPaymentModalProps> = ({ isOpen, onClo
               </button>
             </div>
           </form>
+          )}
 
         </div>
       </div>

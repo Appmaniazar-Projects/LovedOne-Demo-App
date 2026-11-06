@@ -108,6 +108,8 @@ export interface Payment {
   paymentReference?: string;
   provider?: 'pay_at';
   providerTransactionId?: string; // Pay@'s own transaction id, from callback
+  paymentLink?: string;           // Pay@ hosted payment link (also encoded as the QR)
+  accountNumber?: string;         // Pay@ payable account number (prefix + 9 digits)
   expiresAt?: string;
   paidAt?: string;
 
@@ -127,10 +129,11 @@ export interface PaymentProviderConfig {
   id: string;
   parlorId: string;
   provider: 'pay_at';
-  payatSubaccountRef?: string;   // replaces payatPrefix going forward
+  payatSubaccountRef?: string;
+  payatPrefix?: string;          // 5-digit Pay@ prefix; required by create-payat-reference
   onboardingStatus: PayatOnboardingStatus;
   onboardingNotes?: string;
-  enabled: boolean;              // should only be true once onboardingStatus === 'approved' and payatSubaccountRef is set
+  enabled: boolean;              // only true once onboardingStatus === 'approved' and a valid payatPrefix is set
   webhookSecret?: string;
   createdAt: string;
   updatedAt: string;

@@ -4,6 +4,7 @@ import RequestPaymentModal from './RequestPaymentModal';
 import ViewPaymentModal from './ViewPaymentModal';
 import { supabase } from '../../supabaseClient';
 import { Payment, normalizePaymentMethod, getPaymentMethodLabel } from '../../types/payments';
+import { mapPaymentRow } from '../../hooks/usePaymentStatus';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCountUp } from '../../hooks/useCountUp';
 import { useOutletContext, useParams } from 'react-router-dom';
@@ -102,13 +103,10 @@ Generated on: ${new Date().toLocaleString('en-US')}
       console.error('Error fetching payments:', error);
     } else {
       const formattedData = data.map(p => ({
-        ...p,
+        ...mapPaymentRow(p),
         createdAt: new Date(p.created_at),
         updatedAt: new Date(p.updated_at),
-        transactionId: p.transaction_id,
-        caseId: p.case_id,
-        paymentReference: p.payment_reference || p.reference || undefined,
-      })) as Payment[];
+      })) as unknown as Payment[];
       setPayments(formattedData);
       setError(null);
     }

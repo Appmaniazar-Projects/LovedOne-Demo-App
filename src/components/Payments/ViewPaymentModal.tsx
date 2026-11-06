@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 import {
   Payment,
   MANUALLY_UPDATABLE_METHODS,
@@ -8,6 +8,8 @@ import {
 } from '../../types/payments';
 import { supabase } from '../../supabaseClient';
 import { toast } from 'react-hot-toast';
+import { usePaymentStatus } from '../../hooks/usePaymentStatus';
+import PayAtRequestDetails from './PayAtRequestDetails';
 
 interface ViewPaymentModalProps {
   isOpen: boolean;
@@ -15,18 +17,34 @@ interface ViewPaymentModalProps {
   payment: Payment | null;
 }
 
-const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, payment }) => {
+const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, payment: initialPayment }) => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  // Pay@ payments are settled by Pay@, so keep them live (Realtime + polling)
+  // and allow an on-demand status check.
+  const isPayAt = !!initialPayment && isPayAtMethod(initialPayment.method);
+  const live = usePaymentStatus(isOpen && isPayAt && initialPayment ? initialPayment.id : null);
+  const payment = isPayAt && live.payment && live.payment.id === initialPayment!.id
+    ? { ...initialPayment!, ...live.payment, createdAt: initialPayment!.createdAt }
+    : initialPayment;
+
+  const handleCheckStatus = async () => {
+    setChecking(true);
+    await live.refresh();
+    setChecking(false);
+    toast.success('Status refreshed.');
+  };
   const [documents, setDocuments] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDocs = async () => {
-      if (!payment?.clientId) return;
+      if (!initialPayment?.clientId) return;
       try {
         const { data } = await supabase
           .from('client_documents')
           .select('*')
-          .eq('client_id', payment.clientId)
+          .eq('client_id', initialPayment.clientId)
           .eq('document_type', 'proof_of_payment')
           .order('uploaded_at', { ascending: false });
 
@@ -37,11 +55,12 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
     };
 
     fetchDocs();
-  }, [payment]);
+  }, [initialPayment]);
 
   if (!isOpen || !payment) return null;
 
-  const canManuallyUpdate = MANUALLY_UPDATABLE_METHODS.includes(payment.method);
+  // Never allow manual status changes on gateway (Pay@) payments.
+  const canManuallyUpdate = !isPayAt && MANUALLY_UPDATABLE_METHODS.includes(payment.method);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(amount);
@@ -90,7 +109,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
 
   return (
     <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg relative transition-colors duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative transition-colors duration-200">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
@@ -123,7 +142,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                 <p className="text-lg text-slate-900 dark:text-white">{methodLabel(payment.method)}</p>
               </div>
 
-              {payment.paymentReference && (
+              {payment.paymentReference && !isPayAt && (
                 <div>
                   <h3 className="text-sm font-medium text-slate-500 dark:text-gray-300 mb-1">
                     {isPayAtMethod(payment.method) ? 'Pay@ Reference' : 'Reference'}
@@ -144,6 +163,40 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                 </div>
               )}
             </div>
+
+            {isPayAt && (
+              <div className="pt-4 border-t border-slate-200 dark:border-gray-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Pay@ payment request</h3>
+                  <button
+                    onClick={handleCheckStatus}
+                    disabled={checking}
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} /> Check status
+                  </button>
+                </div>
+                {payment.status === 'paid' ? (
+                  <p className="text-sm text-slate-700 dark:text-gray-200">
+                    Paid via Pay@{payment.paidAt ? ` on ${formatDate(payment.paidAt)}` : ''}.
+                    {payment.accountNumber || payment.paymentReference ? ` Reference: ${payment.accountNumber || payment.paymentReference}` : ''}
+                  </p>
+                ) : payment.status === 'pending' || payment.status === 'awaiting_confirmation' ? (
+                  <PayAtRequestDetails
+                    accountNumber={payment.accountNumber}
+                    reference={payment.paymentReference || payment.reference}
+                    paymentLink={payment.paymentLink}
+                    expiresAt={payment.expiresAt}
+                    amount={payment.amount}
+                    description={payment.description}
+                  />
+                ) : (
+                  <p className="text-sm text-slate-700 dark:text-gray-200">
+                    This Pay@ request is {payment.status}. Create a new Pay@ request from Payments → Request Payment if the customer still needs to pay.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="pt-4 border-t border-slate-200 dark:border-gray-700">
               <h3 className="text-sm font-medium text-slate-500 dark:text-gray-300 mb-1">Date Created</h3>

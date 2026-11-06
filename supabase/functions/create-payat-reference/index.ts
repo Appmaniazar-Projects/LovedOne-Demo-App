@@ -108,6 +108,7 @@ serve(async (req) => {
       parlorId,
       caseId,
       clientId,
+      invoiceId,
       amount,
       description,
       customerNameSurname,
@@ -159,6 +160,25 @@ serve(async (req) => {
       }, 400);
     }
 
+    // Optional invoice link — must belong to the same parlour. The
+    // payat-callback function uses invoice_id to mark the invoice paid.
+    let linkedInvoiceId: string | null = null;
+    if (invoiceId) {
+      if (typeof invoiceId !== 'string') {
+        return json({ error: 'Invalid invoiceId' }, 400);
+      }
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('id', invoiceId)
+        .eq('parlor_id', parlorId)
+        .maybeSingle();
+      if (invoiceError || !invoice) {
+        return json({ error: 'Invoice not found for this parlour' }, 400);
+      }
+      linkedInvoiceId = invoice.id;
+    }
+
     // Create a local record first so the provider request can be linked
     // to a stable LovedOne payment ID.
     const { data: payment, error: insertError } = await supabase
@@ -167,6 +187,7 @@ serve(async (req) => {
         parlor_id: parlorId,
         case_id: caseId || null,
         client_id: clientId || null,
+        invoice_id: linkedInvoiceId,
         description: description.trim(),
         amount,
         method: 'pay_at',

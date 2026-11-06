@@ -21,6 +21,7 @@ import ClientDetails from './components/Clients/ClientDetails';
 import PaymentAlertDashboard from './components/Payments/PaymentAlertDashboard';
 import PayAtOnboarding from './components/Payments/PayAtOnboarding';
 import NotFound from './components/Layout/NotFound';
+import AppLoader from './components/Layout/AppLoader';
 
 const SESSION_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
@@ -104,7 +105,7 @@ const ParlorLayout = () => {
 
   // Don't render until we have the parlor details
   if (!resolvedParlorId || !parlorNameState) {
-    return <div className="flex items-center justify-center h-screen">Loading parlor...</div>;
+    return <AppLoader message="Loading parlor…" />;
   }
 
   return (
@@ -148,74 +149,102 @@ const ParlorLayout = () => {
 
 const RoleBasedRedirect = () => {
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const fail = async (message: string, detail?: unknown) => {
+      console.error(message, detail ?? '');
+      if (cancelled) return;
+      setError(detail && typeof detail === 'object' && 'message' in detail
+        ? `${message}: ${(detail as { message: string }).message}`
+        : message);
+      await supabase.auth.signOut().catch(() => {});
+    };
+
     const getUserProfileAndRedirect = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/login', { replace: true });
-        return;
-      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate('/login', { replace: true });
+          return;
+        }
 
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('role, parlor_id')
-        .eq('id', session.user.id)
-        .single();
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('role, parlor_id')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        await supabase.auth.signOut();
-        return;
-      }
+        if (profileError) return fail('Could not load your user profile', profileError);
+        if (!profile) return fail('No user profile found for this account. Ask an admin to add you to the users table.');
 
-      const navigateToParlorDashboard = async (id: string) => {
-        const { data: parlor } = await supabase
-          .from('parlors')
-          .select('slug')
-          .eq('id', id)
-          .single();
+        const navigateToParlorDashboard = async (id: string) => {
+          const { data: parlor } = await supabase
+            .from('parlors')
+            .select('slug')
+            .eq('id', id)
+            .maybeSingle();
 
-        const routeKey = parlor?.slug || id;
-        navigate(`/${routeKey}/dashboard`, { replace: true });
-      };
+          const routeKey = parlor?.slug || id;
+          navigate(`/${routeKey}/dashboard`, { replace: true });
+        };
 
-      // super_admin can reach every parlour regardless of user_parlors rows
-      // (RLS grants that via is_super_admin(), not membership), so always
-      // let them choose rather than guessing one.
-      if (profile.role === 'super_admin') {
-        navigate('/select-parlor', { replace: true });
-        return;
-      }
+        // super_admin can reach every parlour regardless of user_parlors rows
+        // (RLS grants that via is_super_admin(), not membership), so always
+        // let them choose rather than guessing one.
+        if (profile.role === 'super_admin') {
+          navigate('/select-parlor', { replace: true });
+          return;
+        }
 
-      // Everyone else: their real access is whatever's in user_parlors now,
-      // not the single profile.parlor_id. One parlour -> skip straight in,
-      // same as before. Zero or multiple -> let them choose.
-      const { data: memberships, error: membershipsError } = await supabase
-        .from('user_parlors')
-        .select('parlor_id')
-        .eq('user_id', session.user.id);
+        // Everyone else: their real access is whatever's in user_parlors now,
+        // not the single profile.parlor_id. One parlour -> skip straight in.
+        // Multiple -> let them choose.
+        const { data: memberships, error: membershipsError } = await supabase
+          .from('user_parlors')
+          .select('parlor_id')
+          .eq('user_id', session.user.id);
 
-      if (membershipsError) {
-        console.error('Error fetching parlor memberships:', membershipsError);
-        await supabase.auth.signOut();
-        return;
-      }
+        if (membershipsError) return fail('Could not load your parlor access', membershipsError);
 
-      if (!memberships || memberships.length === 0) {
-        console.error('User has no assigned parlor.');
-        await supabase.auth.signOut();
-      } else if (memberships.length === 1) {
-        await navigateToParlorDashboard(memberships[0].parlor_id);
-      } else {
-        navigate('/select-parlor', { replace: true });
+        if (!memberships || memberships.length === 0) {
+          return fail('Your account is not assigned to any parlor yet. Ask an admin to add you.');
+        } else if (memberships.length === 1) {
+          await navigateToParlorDashboard(memberships[0].parlor_id);
+        } else {
+          navigate('/select-parlor', { replace: true });
+        }
+      } catch (err) {
+        await fail('Something went wrong while signing you in', err);
       }
     };
 
     getUserProfileAndRedirect();
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
-  return <div>Loading...</div>;
+  if (error) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-lg shadow p-6 text-center">
+          <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">We couldn't sign you in</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">{error}</p>
+          <button
+            onClick={() => navigate('/login', { replace: true })}
+            className="px-4 py-2 rounded-md bg-slate-800 text-white hover:bg-slate-700"
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <AppLoader message="Signing you in…" />;
 };
 
 function App() {
@@ -223,58 +252,63 @@ function App() {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    let finished = false;
+    const finish = () => {
+      if (!finished) {
+        finished = true;
+        setLoading(false);
+      }
+    };
+
+    // Returns true if the session was expired and the user is being signed out.
+    const enforceMaxAge = (currentSession: unknown): boolean => {
+      if (!currentSession) {
+        localStorage.removeItem('customSessionStartedAt');
+        return false;
+      }
+      const now = Date.now();
+      const stored = localStorage.getItem('customSessionStartedAt');
+      const startedAt = stored ? parseInt(stored, 10) : now;
+      if (!stored) {
+        localStorage.setItem('customSessionStartedAt', startedAt.toString());
+      }
+      if (now - startedAt > SESSION_MAX_AGE_MS) {
+        localStorage.removeItem('customSessionStartedAt');
+        // Defer: calling supabase.auth inside onAuthStateChange deadlocks the auth lock.
+        setTimeout(() => {
+          supabase.auth.signOut().catch((err) => console.error('Sign-out failed:', err));
+        }, 0);
+        navigate('/login', { replace: true });
+        return true;
+      }
+      return false;
+    };
+
+    // Safety net: never leave the user stuck on the loader.
+    const safetyTimer = setTimeout(() => {
+      console.warn('Auth initialisation timed out; continuing without waiting.');
+      finish();
+    }, 8000);
+
+    // NOTE: this callback must stay synchronous (no awaiting supabase calls here).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (event === 'SIGNED_IN') {
-        const now = Date.now();
-        localStorage.setItem('customSessionStartedAt', now.toString());
+        localStorage.setItem('customSessionStartedAt', Date.now().toString());
       }
-
-      if (currentSession) {
-        const now = Date.now();
-        const stored = localStorage.getItem('customSessionStartedAt');
-        const startedAt = stored ? parseInt(stored, 10) : now;
-
-        if (!stored) {
-          localStorage.setItem('customSessionStartedAt', startedAt.toString());
-        }
-
-        if (now - startedAt > SESSION_MAX_AGE_MS) {
-          await supabase.auth.signOut();
-          localStorage.removeItem('customSessionStartedAt');
-          setLoading(false);
-          navigate('/login', { replace: true });
-          return;
-        }
-      } else {
-        localStorage.removeItem('customSessionStartedAt');
-      }
-
-      setLoading(false);
+      enforceMaxAge(currentSession);
+      finish();
     });
 
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      if (currentSession) {
-        const now = Date.now();
-        const stored = localStorage.getItem('customSessionStartedAt');
-        let startedAt = stored ? parseInt(stored, 10) : now;
-
-        if (!stored) {
-          localStorage.setItem('customSessionStartedAt', startedAt.toString());
-        }
-
-        if (now - startedAt > SESSION_MAX_AGE_MS) {
-          await supabase.auth.signOut();
-          localStorage.removeItem('customSessionStartedAt');
-          setLoading(false);
-          navigate('/login', { replace: true });
-          return;
-        }
-      } else {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: currentSession } }) => {
+        enforceMaxAge(currentSession);
+      })
+      .catch((err) => {
+        console.error('Failed to restore session:', err);
         localStorage.removeItem('customSessionStartedAt');
-      }
-
-      setLoading(false);
-    });
+      })
+      .finally(finish);
 
     // Set initial theme class on body
     const savedTheme = localStorage.getItem('theme');
@@ -285,12 +319,13 @@ function App() {
     }
 
     return () => {
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, [navigate]);
 
   if (loading) {
-    return <div>Loading application...</div>;
+    return <AppLoader message="Loading application…" />;
   }
 
   return (
